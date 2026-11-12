@@ -172,7 +172,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-full">
       {/* Sidebar: new chat button and saved chats */}
       <aside className="w-64 shrink-0 overflow-y-auto border-r border-gray-700 p-4">
         <button
