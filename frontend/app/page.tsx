@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const API_URL = "http://127.0.0.1:8000";
 
 type Message = { role: "user" | "assistant"; content: string };
+type Chat = { session_id: string; title: string };
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [chats, setChats] = useState<Chat[]>([]);
   const [input, setInput] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  
 
   async function send() {
   const text = input.trim();
@@ -56,48 +59,107 @@ export default function Home() {
       ]);
     } finally {
       setLoading(false);
+      loadChats();
     }
   }
 
-  return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-4 p-6">
-      <h1 className="text-2xl font-semibold">Chef Assistant</h1>
+    async function loadChats() {
+    try {
+      const res = await fetch(`${API_URL}/conversations`);
+      if (!res.ok) throw new Error("Request failed");
+      setChats(await res.json());
+    } catch {
+      setChats([]);
+    }
+  }
 
-      <div className="flex flex-1 flex-col gap-3">
-        {messages.map((m, i) => {
-          if (m.role === "assistant" && m.content === "") return null;
-          return (
-            <div
-              key={i}
+  async function openChat(id: string) {
+    try {
+      const res = await fetch(`${API_URL}/history/${id}`);
+      if (!res.ok) throw new Error("Request failed");
+      setMessages(await res.json());
+      setSessionId(id);
+    } catch {
+      setMessages([{ role: "assistant", content: "Couldn't load that chat." }]);
+    }
+  } 
+
+  useEffect(() => {
+    loadChats();
+  }, []);
+
+    return (
+    <div className="flex h-screen">
+      {/* Sidebar: saved chats */}
+      <aside className="w-64 shrink-0 overflow-y-auto border-r border-gray-700 p-4">
+        <h2 className="mb-3 text-lg font-semibold">Chats</h2>
+        <div className="flex flex-col gap-1">
+          {chats.map((c) => (
+            <button
+              key={c.session_id}
+              onClick={() => openChat(c.session_id)}
+              disabled={loading}
               className={
-                m.role === "user"
-                  ? "self-end whitespace-pre-wrap rounded-lg bg-blue-600 px-3 py-2 text-white"
-                  : "self-start whitespace-pre-wrap rounded-lg bg-gray-200 px-3 py-2 text-black"
+                "truncate rounded px-2 py-1 text-left disabled:opacity-50 " +
+                (c.session_id === sessionId
+                  ? "bg-blue-600 text-white"
+                  : "hover:bg-gray-200 hover:text-black")
               }
             >
-              {m.content}
-            </div>
-          );
-        })}
-        {loading && <div className="self-start text-gray-500">Chef is thinking...</div>}
-      </div>
-
-      <div className="flex gap-2">
-        <input
-          className="flex-1 rounded-lg border px-3 py-2 text-black"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send()}
-          placeholder="What are we cooking?"
-        />
-        <button
-          className="rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
-          onClick={send}
-          disabled={loading}
-        >
-          Send
-        </button>
-      </div>
-    </main>
+              {c.title}
+            </button>
+          ))}
+        </div>
+      </aside>
+ 
+      {/* Main column: messages on top, input pinned at the bottom */}
+      <main className="flex min-w-0 flex-1 flex-col">
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="mx-auto flex max-w-2xl flex-col gap-3">
+            <h1 className="text-2xl font-semibold">Chef Assistant</h1>
+ 
+            {messages.map((m, i) => {
+              if (m.role === "assistant" && m.content === "") return null;
+              return (
+                <div
+                  key={i}
+                  className={
+                    m.role === "user"
+                      ? "self-end whitespace-pre-wrap rounded-lg bg-blue-600 px-3 py-2 text-white"
+                      : "self-start whitespace-pre-wrap rounded-lg bg-gray-200 px-3 py-2 text-black"
+                  }
+                >
+                  {m.content}
+                </div>
+              );
+            })}
+ 
+            {loading && messages[messages.length - 1]?.content === "" && (
+              <div className="self-start text-gray-500">Chef is thinking...</div>
+            )}
+          </div>
+        </div>
+ 
+        <div className="border-t border-gray-700 p-4">
+          <div className="mx-auto flex max-w-2xl gap-2">
+            <input
+              className="flex-1 rounded-lg border px-3 py-2 text-black"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && send()}
+              placeholder="What are we cooking?"
+            />
+            <button
+              className="rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
+              onClick={send}
+              disabled={loading}
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }
+ 
