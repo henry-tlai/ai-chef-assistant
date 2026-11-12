@@ -13,6 +13,8 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [sidebarError, setSidebarError] = useState("")
   
 
   async function send() {
@@ -84,6 +86,23 @@ export default function Home() {
     }
   } 
 
+  async function deleteChat(id: string) {
+  try {
+    const res = await fetch(`${API_URL}/conversations/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Request failed");
+    if (id === sessionId) {
+      setMessages([]);
+      setSessionId(null);
+      updateUrl(null);
+    }
+    setSidebarError("");
+    loadChats();
+  } catch {
+    setSidebarError("Couldn't delete that chat.");
+  } finally {
+    setPendingDelete(null);
+  }
+}
   useEffect(() => {
     loadChats();
   }, []);
@@ -95,19 +114,40 @@ export default function Home() {
         <h2 className="mb-3 text-lg font-semibold">Chats</h2>
         <div className="flex flex-col gap-1">
           {chats.map((c) => (
-            <button
-              key={c.session_id}
-              onClick={() => openChat(c.session_id)}
-              disabled={loading}
-              className={
-                "truncate rounded px-2 py-1 text-left disabled:opacity-50 " +
-                (c.session_id === sessionId
-                  ? "bg-blue-600 text-white"
-                  : "hover:bg-gray-200 hover:text-black")
-              }
-            >
-              {c.title}
-            </button>
+            <div key={c.session_id} className="flex items-center gap-1">
+              {pendingDelete === c.session_id ? (
+                <div className="flex flex-1 items-center gap-2 text-sm">
+                  <span className="flex-1">Delete this chat?</span>
+                  <button
+                    onClick={() => deleteChat(c.session_id)}
+                    className="rounded bg-red-600 px-2 py-1 text-white"
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={() => setPendingDelete(null)}
+                    className="rounded border px-2 py-1"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => openChat(c.session_id)}
+                    className="flex-1"
+                  >
+                    {c.title}
+                  </button>
+                  <button
+                    onClick={() => setPendingDelete(c.session_id)}
+                    className="rounded border px-2 py-1"
+                  >
+                    x
+                  </button>
+                </>
+              )}
+            </div>
           ))}
         </div>
       </aside>
