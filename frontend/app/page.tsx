@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { HistoryPanel } from "@/components/history-panel";
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -19,9 +20,12 @@ export default function Home() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
-  const [sidebarError, setSidebarError] = useState("");
+  const [historyError, setHistoryError] = useState("");
 
-  // Ask the backend for the list of saved chats and show it in the sidebar.
+  // A reference to the history panel, so the page can open and close it.
+  const panelRef = useRef<HTMLDialogElement>(null);
+
+  // Ask the backend for the list of saved chats.
   async function loadChats() {
     try {
       const res = await fetch(`${API_URL}/conversations`);
@@ -64,10 +68,10 @@ export default function Home() {
         setSessionId(null);
         updateUrl(null);
       }
-      setSidebarError("");
+      setHistoryError("");
       loadChats();
     } catch {
-      setSidebarError("Couldn't delete that chat.");
+      setHistoryError("Couldn't delete that chat.");
     } finally {
       setPendingDelete(null);
     }
@@ -132,7 +136,7 @@ export default function Home() {
     }
   }
 
-  // When the page first opens: load the sidebar, and reopen the chat named in the URL.
+  // When the page first opens: load the chat list, and reopen the chat named in the URL.
   useEffect(() => {
     loadChats();
     const id = new URLSearchParams(window.location.search).get("session");
@@ -141,117 +145,97 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="flex h-full">
-      {/* Sidebar: new chat button and saved chats */}
-      <aside className="w-64 shrink-0 overflow-y-auto border-r border-gray-700 p-4">
-        <button
-          onClick={newChat}
-          disabled={loading}
-          className="mb-4 w-full rounded-lg bg-blue-600 px-3 py-2 text-white disabled:opacity-50"
-        >
-          New chat
-        </button>
+    <div className="flex h-full flex-col bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
+      {/* Header: title, New chat, and the History button */}
+      <header className="flex items-center justify-between gap-2 border-b border-stone-200 px-4 py-3 dark:border-stone-800">
+        <h1 className="text-lg font-semibold">🍳 Chef Assistant</h1>
+        <div className="flex gap-2">
+          <button
+            onClick={newChat}
+            disabled={loading}
+            className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-amber-700 disabled:opacity-50"
+          >
+            New chat
+          </button>
+          <button
+            onClick={() => panelRef.current?.showModal()}
+            disabled={loading}
+            aria-haspopup="dialog"
+            className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium transition hover:bg-stone-100 disabled:opacity-50 dark:border-stone-700 dark:hover:bg-stone-800"
+          >
+            History
+          </button>
+        </div>
+      </header>
 
-        <h2 className="mb-3 text-lg font-semibold">Chats</h2>
-        {sidebarError && <p className="mb-2 text-sm text-red-500">{sidebarError}</p>}
+      {historyError && (
+        <p role="alert" className="px-4 py-2 text-sm text-red-500">
+          {historyError}
+        </p>
+      )}
 
-        <div className="flex flex-col gap-1">
-          {chats.map((c) => (
-            <div key={c.session_id} className="flex items-center gap-1">
-              {pendingDelete === c.session_id ? (
-                // Confirmation row: nothing is deleted until the user clicks Yes.
-                <div className="flex flex-1 items-center gap-2 text-sm">
-                  <span className="flex-1">Delete this chat?</span>
-                  <button
-                    onClick={() => deleteChat(c.session_id)}
-                    className="rounded bg-red-600 px-2 py-1 text-white"
-                  >
-                    Yes
-                  </button>
-                  <button
-                    onClick={() => setPendingDelete(null)}
-                    className="rounded border border-gray-500 px-2 py-1"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                // Normal row: the chat title and a small delete button.
-                <>
-                  <button
-                    onClick={() => openChat(c.session_id)}
-                    disabled={loading}
-                    className={
-                      "flex-1 truncate rounded px-2 py-1 text-left disabled:opacity-50 " +
-                      (c.session_id === sessionId
-                        ? "bg-blue-600 text-white"
-                        : "hover:bg-gray-200 hover:text-black")
-                    }
-                  >
-                    {c.title}
-                  </button>
-                  <button
-                    onClick={() => setPendingDelete(c.session_id)}
-                    disabled={loading}
-                    aria-label="Delete chat"
-                    className="rounded px-2 py-1 text-gray-400 hover:text-red-500 disabled:opacity-50"
-                  >
-                    x
-                  </button>
-                </>
-              )}
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="mx-auto flex max-w-2xl flex-col gap-3">
+          {messages.map((m, i) => {
+            if (m.role === "assistant" && m.content === "") return null;
+            return (
+              <div
+                key={i}
+                className={
+                  m.role === "user"
+                    ? "max-w-[85%] self-end whitespace-pre-wrap rounded-2xl rounded-br-sm bg-amber-600 px-4 py-2 text-white shadow-sm"
+                    : "max-w-[85%] self-start whitespace-pre-wrap rounded-2xl rounded-bl-sm border border-stone-200 bg-white px-4 py-2 shadow-sm dark:border-stone-700 dark:bg-stone-800"
+                }
+              >
+                {m.content}
+              </div>
+            );
+          })}
+
+          {loading && messages[messages.length - 1]?.content === "" && (
+            <div className="animate-pulse self-start text-sm text-stone-500">
+              Chef is thinking...
             </div>
-          ))}
+          )}
         </div>
-      </aside>
+      </div>
 
-      {/* Main column: messages on top, input pinned at the bottom */}
-      <main className="flex min-w-0 flex-1 flex-col">
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="mx-auto flex max-w-2xl flex-col gap-3">
-            <h1 className="text-2xl font-semibold">Chef Assistant</h1>
-
-            {messages.map((m, i) => {
-              if (m.role === "assistant" && m.content === "") return null;
-              return (
-                <div
-                  key={i}
-                  className={
-                    m.role === "user"
-                      ? "self-end whitespace-pre-wrap rounded-lg bg-blue-600 px-3 py-2 text-white"
-                      : "self-start whitespace-pre-wrap rounded-lg bg-gray-200 px-3 py-2 text-black"
-                  }
-                >
-                  {m.content}
-                </div>
-              );
-            })}
-
-            {loading && messages[messages.length - 1]?.content === "" && (
-              <div className="self-start text-gray-500">Chef is thinking...</div>
-            )}
-          </div>
+      {/* Input row, pinned at the bottom */}
+      <div className="border-t border-stone-200 bg-white p-3 dark:border-stone-800 dark:bg-stone-900">
+        <div className="mx-auto flex max-w-2xl gap-2">
+          <input
+            className="min-w-0 flex-1 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-stone-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && send()}
+            placeholder="What are we cooking?"
+            aria-label="Message the chef"
+          />
+          <button
+            className="rounded-xl bg-amber-600 px-5 py-2.5 font-medium text-white transition hover:bg-amber-700 disabled:opacity-50"
+            onClick={send}
+            disabled={loading}
+          >
+            Send
+          </button>
         </div>
+      </div>
 
-        <div className="border-t border-gray-700 p-4">
-          <div className="mx-auto flex max-w-2xl gap-2">
-            <input
-              className="flex-1 rounded-lg border px-3 py-2 text-black"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && send()}
-              placeholder="What are we cooking?"
-            />
-            <button
-              className="rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
-              onClick={send}
-              disabled={loading}
-            >
-              Send
-            </button>
-          </div>
-        </div>
-      </main>
+      {/* History panel: a bottom sheet on phones, a side panel on desktop */}
+      <HistoryPanel
+        ref={panelRef}
+        chats={chats}
+        currentId={sessionId}
+        pendingId={pendingDelete}
+        onOpen={(id) => {
+          openChat(id);
+          panelRef.current?.close();
+        }}
+        onAskDelete={setPendingDelete}
+        onConfirmDelete={deleteChat}
+        onCancelDelete={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
