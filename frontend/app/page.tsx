@@ -22,6 +22,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState("");
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   // References
   const panelRef = useRef<HTMLDialogElement>(null);
@@ -145,8 +146,11 @@ export default function Home() {
   const el = scrollRef.current;
   if (!el) return;
 
-  stickToBottom.current = 
+  const isAtBottom =
     el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+
+  stickToBottom.current = isAtBottom;
+  setShowScrollButton(!isAtBottom);
   }
 
   // When the page first opens: load the chat list, and reopen the chat named in the URL.
@@ -194,36 +198,66 @@ export default function Home() {
         </p>
       )}
 
-      {/* Messages */}
-      <div
-        ref={scrollRef}
-        onScroll={onScroll}
-        className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6"
-      >
-        <div className="mx-auto flex max-w-2xl flex-col gap-3">
-          {messages.map((m, i) => {
-            if (m.role === "assistant" && m.content === "") return null;
-            return (
-              <div
-                key={i}
-                className={
-                  m.role === "user"
-                    ? "max-w-[85%] self-end whitespace-pre-wrap rounded-2xl rounded-br-sm bg-amber-600 px-4 py-2 text-white shadow-sm"
-                    : "max-w-[85%] self-start break-words rounded-2xl rounded-bl-sm border border-stone-200 bg-white px-4 py-2 shadow-sm dark:border-stone-700 dark:bg-stone-800"
-                }
-              >
-                {m.role === "assistant" ? <Markdown>{m.content}</Markdown> : m.content}
-              </div>
-            );
-          })}
+      
+{/* Messages */}
+<div className="relative min-h-0 flex-1">
 
-          {loading && messages[messages.length - 1]?.content === "" && (
-            <div className="animate-pulse self-start text-sm text-stone-500">
-              Chef is thinking...
-            </div>
-          )}
+  {/* Scrollable message area */}
+  <div
+    ref={scrollRef}
+    onScroll={onScroll}
+    className="h-full overflow-y-auto p-4 md:p-6"
+  >
+    <div className="mx-auto flex max-w-2xl flex-col gap-3">
+      {messages.map((m, i) => {
+        if (m.role === "assistant" && m.content === "") return null;
+
+        return (
+          <div
+            key={i}
+            className={
+              m.role === "user"
+                ? "max-w-[85%] self-end whitespace-pre-wrap rounded-2xl rounded-br-sm bg-amber-600 px-4 py-2 text-white shadow-sm"
+                : "max-w-[85%] self-start break-words rounded-2xl rounded-bl-sm border border-stone-200 bg-white px-4 py-2 shadow-sm dark:border-stone-700 dark:bg-stone-800"
+            }
+          >
+            {m.role === "assistant" ? (
+              <Markdown>{m.content}</Markdown>
+            ) : (
+              m.content
+            )}
+          </div>
+        );
+      })}
+
+      {loading && messages[messages.length - 1]?.content === "" && (
+        <div className="animate-pulse self-start text-sm text-stone-500">
+          Chef is thinking...
         </div>
-      </div>
+      )}
+    </div>
+  </div>
+
+  {/* Floating scroll-to-bottom button */}
+  {showScrollButton && (
+    <button
+      onClick={() => {
+        stickToBottom.current = true;
+        scrollRef.current?.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      }}
+      aria-label="Scroll to latest message"
+      title="Scroll to latest message"
+      className="absolute bottom-5 left-1/2 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-stone-300 bg-white text-stone-700 shadow-lg transition hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100 dark:hover:bg-stone-700"
+    >
+      ↓
+    </button>
+  )}
+
+</div>
+
 
       {/* Input row, pinned at the bottom */}
       <div className="shrink-0 border-t border-stone-200 bg-white p-3 dark:border-stone-800 dark:bg-stone-900">
