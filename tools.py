@@ -37,4 +37,5 @@ def get_favorite(title: str) -> str:
 TOOLS = {
     "save_favorite": save_favorite,
     "list_favorites": list_favorites,
+    "get_favorite": get_favorite,
 }
