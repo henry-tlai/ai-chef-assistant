@@ -6,7 +6,6 @@ const API_URL = "http://127.0.0.1:8000";
 
 type Message = { role: "user" | "assistant"; content: string };
 type Chat = { session_id: string; title: string };
-type Favorite = { id: number; title: string };
 
 // Keep the address bar in sync with the current chat, so a reload finds it again.
 function updateUrl(id: string | null) {
@@ -21,9 +20,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [sidebarError, setSidebarError] = useState("");
-  const [favorites, setFavorites] = useState<Favorite[]>([]);
-  const [pendingFavDelete, setPendingFavDelete] = useState<number | null>(null);
-  const [favError, setFavError] = useState("");
 
   // Ask the backend for the list of saved chats and show it in the sidebar.
   async function loadChats() {
@@ -74,31 +70,6 @@ export default function Home() {
       setSidebarError("Couldn't delete that chat.");
     } finally {
       setPendingDelete(null);
-    }
-  }
-
-  // Ask the backend for the saved favorites and show them in the sidebar.
-  async function loadFavorites() {
-    try {
-      const res = await fetch(`${API_URL}/favorites`);
-      if (!res.ok) throw new Error("Request failed");
-      setFavorites(await res.json());
-    } catch {
-      setFavorites([]);
-    }
-  }
-
-  // Delete a favorite. Only called after the user confirms.
-  async function deleteFavorite(id: number) {
-    try {
-      const res = await fetch(`${API_URL}/favorites/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Request failed");
-      setFavError("");
-      loadFavorites();
-    } catch {
-      setFavError("Couldn't delete that favorite.");
-    } finally {
-      setPendingFavDelete(null);
     }
   }
 
@@ -158,14 +129,12 @@ export default function Home() {
     } finally {
       setLoading(false);
       loadChats(); // a new chat only exists in the database after its first reply
-      loadFavorites(); // the chef may have saved a recipe during this reply
     }
   }
 
   // When the page first opens: load the sidebar, and reopen the chat named in the URL.
   useEffect(() => {
     loadChats();
-    loadFavorites();
     const id = new URLSearchParams(window.location.search).get("session");
     if (id) openChat(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -226,49 +195,6 @@ export default function Home() {
                     disabled={loading}
                     aria-label="Delete chat"
                     className="rounded px-2 py-1 text-gray-400 hover:text-red-500 disabled:opacity-50"
-                  >
-                    x
-                  </button>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <h2 className="mb-3 mt-6 text-lg font-semibold">Favorites</h2>
-        {favError && <p className="mb-2 text-sm text-red-500">{favError}</p>}
-        {favorites.length === 0 && (
-          <p className="text-sm text-gray-500">No favorites yet.</p>
-        )}
-
-        <div className="flex flex-col gap-1">
-          {favorites.map((f) => (
-            <div key={f.id} className="flex items-center gap-1">
-              {pendingFavDelete === f.id ? (
-                // Confirmation row: nothing is deleted until the user clicks Yes.
-                <div className="flex flex-1 items-center gap-2 text-sm">
-                  <span className="flex-1">Delete this favorite?</span>
-                  <button
-                    onClick={() => deleteFavorite(f.id)}
-                    className="rounded bg-red-600 px-2 py-1 text-white"
-                  >
-                    Yes
-                  </button>
-                  <button
-                    onClick={() => setPendingFavDelete(null)}
-                    className="rounded border border-gray-500 px-2 py-1"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                // Normal row: the recipe title and a small delete button.
-                <>
-                  <span className="flex-1 truncate px-2 py-1">{f.title}</span>
-                  <button
-                    onClick={() => setPendingFavDelete(f.id)}
-                    aria-label="Delete favorite"
-                    className="rounded px-2 py-1 text-gray-400 hover:text-red-500"
                   >
                     x
                   </button>
