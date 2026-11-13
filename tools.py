@@ -27,10 +27,10 @@ def get_favorite(title: str) -> str:
     matches = db.find_favorite(title)
     if not matches:
         return f"No favorite found matching '{title}'. Suggest the user check their favorites list."
-    if matches:                                                 
+    if len(matches) > 1:
         names = ", ".join(t for t, _ in matches)
-        return f"Several favorites match: {names}. Ask the user which one they mean."
-    found_title, recipe = matches                               
+        return f"Several favorites match: {names}."
+    found_title, recipe = matches[0]                        
     return f"{found_title}\n\n{recipe}"
 
 
