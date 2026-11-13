@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { HistoryPanel } from "@/components/history-panel";
+import { Markdown } from "@/components/markdown";
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -185,10 +186,10 @@ export default function Home() {
                 className={
                   m.role === "user"
                     ? "max-w-[85%] self-end whitespace-pre-wrap rounded-2xl rounded-br-sm bg-amber-600 px-4 py-2 text-white shadow-sm"
-                    : "max-w-[85%] self-start whitespace-pre-wrap rounded-2xl rounded-bl-sm border border-stone-200 bg-white px-4 py-2 shadow-sm dark:border-stone-700 dark:bg-stone-800"
+                    : "max-w-[85%] self-start break-words rounded-2xl rounded-bl-sm border border-stone-200 bg-white px-4 py-2 shadow-sm dark:border-stone-700 dark:bg-stone-800"
                 }
               >
-                {m.content}
+                {m.role === "assistant" ? <Markdown>{m.content}</Markdown> : m.content}
               </div>
             );
           })}
