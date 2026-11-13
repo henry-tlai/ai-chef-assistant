@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { HistoryPanel } from "@/components/history-panel";
 import { Markdown } from "@/components/markdown";
 
@@ -23,8 +23,10 @@ export default function Home() {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState("");
 
-  // A reference to the history panel, so the page can open and close it.
+  // References
   const panelRef = useRef<HTMLDialogElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);   
+  const stickToBottom = useRef(true);              
 
   // Ask the backend for the list of saved chats.
   async function loadChats() {
@@ -42,6 +44,7 @@ export default function Home() {
     try {
       const res = await fetch(`${API_URL}/history/${id}`);
       if (!res.ok) throw new Error("Request failed");
+      stickToBottom.current = true;
       setMessages(await res.json());
       setSessionId(id);
       updateUrl(id);
@@ -82,6 +85,7 @@ export default function Home() {
   async function send() {
     const text = input.trim();
     if (!text || loading) return;
+    stickToBottom.current = true;
 
     // Show the user's message now, plus an empty assistant bubble to fill in.
     setMessages((prev) => [
@@ -137,16 +141,31 @@ export default function Home() {
     }
   }
 
+  function onScroll() {
+  const el = scrollRef.current;
+  if (!el) return;
+
+  stickToBottom.current = 
+    el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }
+
   // When the page first opens: load the chat list, and reopen the chat named in the URL.
   useEffect(() => {
     loadChats();
     const id = new URLSearchParams(window.location.search).get("session");
     if (id) openChat(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const el = scrollRef.current;
+
+    if (el && stickToBottom.current){
+      el.scrollTo({ top: el.scrollHeight });
+    }
+  }, [messages]);
+  
   return (
-    <div className="flex h-full flex-col bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
+    <div className="flex h-dvh min-h-0 flex-col bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
       {/* Header: title, New chat, and the History button */}
       <header className="flex items-center justify-between gap-2 border-b border-stone-200 px-4 py-3 dark:border-stone-800">
         <h1 className="text-lg font-semibold">🍳 Chef Assistant</h1>
@@ -176,7 +195,11 @@ export default function Home() {
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6"
+      >
         <div className="mx-auto flex max-w-2xl flex-col gap-3">
           {messages.map((m, i) => {
             if (m.role === "assistant" && m.content === "") return null;
@@ -203,7 +226,7 @@ export default function Home() {
       </div>
 
       {/* Input row, pinned at the bottom */}
-      <div className="border-t border-stone-200 bg-white p-3 dark:border-stone-800 dark:bg-stone-900">
+      <div className="shrink-0 border-t border-stone-200 bg-white p-3 dark:border-stone-800 dark:bg-stone-900">
         <div className="mx-auto flex max-w-2xl gap-2">
           <input
             className="min-w-0 flex-1 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-stone-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100"
