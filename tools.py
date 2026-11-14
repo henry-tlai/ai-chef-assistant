@@ -1,13 +1,20 @@
 import db
+from pydantic import ValidationError
+from recipes import Recipe, Step, to_text
 
 
-def save_favorite(title: str, recipe: str) -> str:
+def save_favorite(title: str, ingredients: list[str], steps: list[str]) -> str:
     """Save a recipe to the user's favorites. Use this ONLY when the user's
     latest message explicitly asks to save, favorite, or keep a recipe. Never
     call this just because you wrote a recipe or the user said they liked it;
-    offer to save it and wait for a yes instead. title is the dish name; recipe
-    is the full recipe text, including ingredients and numbered steps."""
-    db.save_favorite(title, recipe)
+    offer to save it and wait for a yes instead. title is the dish name.
+    ingredients is a list with one ingredient per item, including its amount.
+    steps is a list with one cooking step per item, in order, without step numbers."""
+    try:
+        recipe = Recipe(title=title, ingredients=ingredients, steps=[Step(text=s) for s in steps])
+    except ValidationError:
+        return "Could not save: a recipe needs a title and at least one step. Try again with the steps."
+    db.save_favorite(title, to_text(recipe), recipe.model_dump_json()) 
     return f"Saved '{title}' to favorites."
 
 
