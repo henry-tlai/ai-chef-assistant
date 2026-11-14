@@ -1,6 +1,5 @@
 import db
 
-
 def test_save_and_list_favorites(temp_db):
     db.save_favorite("Garlic Chicken", "1. Cook it")
     rows = db.list_favorites()
