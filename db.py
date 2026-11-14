@@ -11,7 +11,7 @@ def init_db():
                 title TEXT NOT NULL,
                 recipe TEXT NOT NULL
             )
-        """),
+        """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -19,13 +19,16 @@ def init_db():
                 content TEXT NOT NULL
             )
         """)
+        columns = [row[1] for row in conn.execute("PRAGMA table_info(favorites)")]
+        if "recipe_json" not in columns:                                
+            conn.execute("ALTER TABLE favorites ADD COLUMN recipe_json TEXT")  
 
 
-def save_favorite(title, recipe):
+def save_favorite(title, recipe, recipe_json=None):
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
-            "INSERT INTO favorites (title, recipe) VALUES (?, ?)",
-            (title, recipe),
+            "INSERT INTO favorites (title, recipe, recipe_json) VALUES (?, ?, ?)",  
+            (title, recipe, recipe_json),                                            
         )
 
 def list_favorites():
@@ -38,6 +41,14 @@ def get_favorite(favorite_id):
         row = conn.execute(
             "SELECT title, recipe FROM favorites WHERE id = ?",   
             (favorite_id,),                                              
+        ).fetchone()
+    return row
+
+def get_favorite_record(favorite_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT id, title, recipe, recipe_json FROM favorites WHERE id = ?",    
+            (favorite_id,),
         ).fetchone()
     return row
 
