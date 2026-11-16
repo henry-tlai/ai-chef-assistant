@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { HistoryPanel } from "@/components/history-panel";
 import { Markdown } from "@/components/markdown";
 
@@ -155,9 +155,20 @@ export default function Home() {
 
   // When the page first opens: load the chat list, and reopen the chat named in the URL.
   useEffect(() => {
-    loadChats();
-    const id = new URLSearchParams(window.location.search).get("session");
-    if (id) openChat(id);
+    async function initialize() {
+      try {
+        const res = await fetch(`${API_URL}/conversations`);
+        if (!res.ok) throw new Error("Request failed");
+        setChats(await res.json());
+      } catch {
+        setChats([]);
+      }
+
+      const id = new URLSearchParams(window.location.search).get("session");
+      if (id) openChat(id);
+    }
+
+    initialize();
   }, []);
 
   useEffect(() => {
