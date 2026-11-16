@@ -1,7 +1,39 @@
+# Environment variables and secrets
 .env
+.env.*
+!.env.example
+
+# Python virtual environments
 venv/
+.venv/
+env/
+
+# Python cache and compiled files
 __pycache__/
-*.db
-.vscode/
+*.py[cod]
 .pytest_cache/
+.ruff_cache/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Node.js dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Build and distribution files
+dist/
+build/
+
+# IDE and editor files
+.vscode/
+.idea/
+
+# Operating system files
 .DS_Store
+Thumbs.db
