@@ -1,8 +1,8 @@
+
 # Local Git hooks for the Chef Assistant project
 repos:
   - repo: local
     hooks:
-
       # Prevent committing secrets and generated files
       - id: forbidden-files
         name: block secrets and generated files
@@ -23,3 +23,19 @@ repos:
         language: system
         pass_filenames: false
         files: \.py$
+
+      # Check frontend code for linting issues
+      - id: frontend-lint
+        name: frontend eslint
+        entry: npm --prefix frontend run lint
+        language: system
+        pass_filenames: false
+        files: ^frontend/
+
+      # Check frontend TypeScript types
+      - id: frontend-typecheck
+        name: frontend typecheck
+        entry: npm --prefix frontend run typecheck
+        language: system
+        pass_filenames: false
+        files: ^frontend/
