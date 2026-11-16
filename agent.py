@@ -1,7 +1,9 @@
 from google.genai import types
-from llm import ask_model, ask_model_stream
+
+from llm import ask_model_stream
 from prompts import SYSTEM_PROMPT
 from tools import TOOLS
+
 
 def chat_stream(history, user_message):
     """Yield the chef's reply text in pieces as it's generated."""
