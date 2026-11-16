@@ -1,6 +1,7 @@
-import tools
 import json
+
 import db
+import tools
 
 
 def test_get_favorite_no_match(temp_db):

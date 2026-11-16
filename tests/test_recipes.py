@@ -1,6 +1,8 @@
 import pytest
 from pydantic import ValidationError
+
 from recipes import Recipe, Step, to_text
+
 
 def test_to_text_numbers_the_steps():
     recipe = Recipe(
