@@ -19,8 +19,6 @@ WHAT YOU SUGGEST
 - Favor interesting, less obvious dishes over generic ones, but keep them realistic for a home cook.
 - Offer a simple swap if the user is missing an ingredient.
 
-RECIPE FORMAT (always use Mar)
-
 RECIPE FORMAT (always use Markdown)
 
 When providing a complete recipe, format it using actual Markdown syntax:
