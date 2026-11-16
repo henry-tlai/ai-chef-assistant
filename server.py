@@ -1,11 +1,21 @@
 from uuid import uuid4
+
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from agent import chat, chat_stream
-from db import init_db, list_favorites, delete_favorite, save_messages, load_messages, list_conversations, delete_conversation
-from google.genai import types
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from google.genai import types
+from pydantic import BaseModel, ValidationError
+
+from agent import chat, chat_stream
+from db import (
+    delete_conversation,
+    delete_favorite,
+    init_db,
+    list_conversations,
+    list_favorites,
+    load_messages,
+    save_messages,
+)
 
 init_db()
 app = FastAPI()
@@ -63,13 +73,16 @@ def chat_stream_endpoint(req: ChatRequest):
 
     def generate():
         try:
-            for piece in chat_stream(history, req.message):
-                yield piece
+            yield from chat_stream(history, req.message)
         except Exception:
-            del history[count_before:]              
+            del history[count_before:]
             raise
+
         new_messages = history[count_before:]
-        save_messages(session_id, [m.model_dump_json(exclude_none=True) for m in new_messages])
+        save_messages(
+            session_id,
+            [m.model_dump_json(exclude_none=True) for m in new_messages],
+        )
 
     return StreamingResponse(
         generate(),
@@ -108,7 +121,7 @@ def conversations_endpoint():
     for session_id, first_json in list_conversations():
         try:
             content = types.Content.model_validate_json(first_json)
-        except Exception:
+        except ValidationError:
             continue                      # skip rows that aren't real messages
         text = "".join(p.text for p in (content.parts or []) if p.text)
         title = text[:TITLE_LENGTH] + ("..." if len(text) > TITLE_LENGTH else "")
