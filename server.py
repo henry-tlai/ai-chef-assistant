@@ -10,12 +10,14 @@ from agent import chat, chat_stream
 from db import (
     delete_conversation,
     delete_favorite,
+    get_favorite_record,
     init_db,
     list_conversations,
     list_favorites,
     load_messages,
     save_messages,
 )
+from recipes import Recipe
 
 init_db()
 app = FastAPI()
@@ -94,6 +96,29 @@ def chat_stream_endpoint(req: ChatRequest):
 def favorites_endpoint():
     rows = list_favorites()    
     return [{"id": row_id, "title": title} for row_id, title in rows]
+
+@app.get("/favorites/{favorite_id}")
+def favorite_detail_endpoint(favorite_id: int):
+    row = get_favorite_record(favorite_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Favorite not found")
+    favorite_id, title, recipe_text, recipe_json = row
+    if not recipe_json:
+        raise HTTPException(
+            status_code=422,
+            detail="Structured recipe data is unavailable",
+        )
+    try:
+        recipe = Recipe.model_validate_json(recipe_json)
+    except ValidationError:
+        raise HTTPException(
+            status_code=500,
+            detail="Saved recipe data is invalid",
+        )
+    return {
+        "id": favorite_id,
+        **recipe.model_dump(),
+    }
 
 @app.get("/history/{session_id}")
 def history_endpoint(session_id: str):
