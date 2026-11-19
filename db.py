@@ -63,8 +63,12 @@ def delete_favorite(favorite_id):
 def find_favorite(query):
     with sqlite3.connect(DB_PATH) as conn:
         rows = conn.execute(
-            "SELECT title, recipe FROM favorites WHERE LOWER(title) LIKE ?",
-            (f"%{query}%".lower(),),                              
+            """
+            SELECT title, recipe, recipe_json
+            FROM favorites
+            WHERE LOWER(title) LIKE ?
+            """,
+            (f"%{query}%".lower(),),
         ).fetchall()
     return rows
 
