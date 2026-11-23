@@ -12,14 +12,14 @@ repos:
       # Check Python code for linting issues
       - id: ruff
         name: ruff lint
-        entry: python -m ruff check
+        entry: python scripts/venv_python.py -m ruff check
         language: system
         types: [python]
 
       # Run the Python test suite before commits
       - id: pytest
         name: python tests
-        entry: python -m pytest -q
+        entry: python scripts/venv_python.py -m pytest -q
         language: system
         pass_filenames: false
         files: \.py$
