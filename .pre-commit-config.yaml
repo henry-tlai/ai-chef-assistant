@@ -1,5 +1,6 @@
 
 # Local Git hooks for the Chef Assistant project
+default_install_hook_types: [pre-commit, commit-msg]
 repos:
   - repo: local
     hooks:
@@ -39,3 +40,10 @@ repos:
         language: system
         pass_filenames: false
         files: ^frontend/
+
+      # Check that the commit message starts with an allowed verb
+      - id: commit-message
+        name: commit message starts with an allowed verb
+        entry: python scripts/check_message.py
+        language: system
+        stages: [commit-msg]
