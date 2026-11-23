@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 
 load_dotenv()
 
@@ -18,5 +18,5 @@ try:
         elif part.inline_data:
             print("NON-TEXT:", part.inline_data.mime_type)
 
-except Exception as e:
+except errors.APIError as e:
     print("Error:", type(e).__name__, e)
