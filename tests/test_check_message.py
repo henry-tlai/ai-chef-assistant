@@ -7,7 +7,7 @@ def test_accepts_each_allowed_verb():
 
 
 def test_rejects_a_lowercase_verb():
-    assert check_message("added a thing in file.py") is not None
+    assert check_message("added a thing in file.py") is None
 
 
 def test_rejects_other_verbs():
