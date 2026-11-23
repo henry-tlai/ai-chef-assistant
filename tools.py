@@ -3,6 +3,7 @@ from pydantic import ValidationError
 import db
 from recipes import Recipe, Step, to_text
 
+
 def save_favorite(title: str, ingredients: list[str], steps: list[str]) -> str:
     """Save a recipe to the user's favorites. Use this ONLY when the user's
     latest message explicitly asks to save, favorite, or keep a recipe. Never
@@ -38,7 +39,7 @@ def get_favorite(title: str) -> str:
         names = ", ".join(t for t, _, _ in matches)
         return f"Several favorites match: {names}."
 
-    found_title, recipe_text, recipe_json = matches[0]
+    found_title, recipe_text, _ = matches[0]
 
     return f"{found_title}\n\n{recipe_text}"
 
@@ -53,7 +54,7 @@ def get_favorite_structured(title: str) -> dict | str:
         names = ", ".join(t for t, _, _ in matches)
         return f"Several favorites match: {names}."
 
-    found_title, recipe_text, recipe_json = matches[0]
+    found_title, _, recipe_json = matches[0]
 
     if not recipe_json:
         return f"Structured recipe data is unavailable for '{found_title}'."
