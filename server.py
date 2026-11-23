@@ -76,7 +76,7 @@ def chat_stream_endpoint(req: ChatRequest):
     def generate():
         try:
             yield from chat_stream(history, req.message)
-        except Exception:
+        except BaseException:
             del history[count_before:]
             raise
 
@@ -102,7 +102,7 @@ def favorite_detail_endpoint(favorite_id: int):
     row = get_favorite_record(favorite_id)
     if not row:
         raise HTTPException(status_code=404, detail="Favorite not found")
-    favorite_id, title, recipe_text, recipe_json = row
+    _, _, _, recipe_json = row
     if not recipe_json:
         raise HTTPException(
             status_code=422,
@@ -156,7 +156,7 @@ def conversations_endpoint():
 @app.delete("/conversations/{session_id}")
 def delete_conversation_endpoint(session_id: str):
     deleted = delete_conversation(session_id)
-    sessions.pop(session_id, None)                    # blank 2
+    sessions.pop(session_id, None)                 
     if not deleted:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return {"deleted": session_id}
