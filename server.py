@@ -62,9 +62,18 @@ def chat_endpoint(req: ChatRequest):
 
     try:
         reply = chat(history, req.message)
-    except Exception:
+    except (APIError, RuntimeError, TimeoutError):
         del history[count_before:]
-        raise
+        raise HTTPException(
+            status_code=502,
+            detail="The chef assistant is temporarily unavailable. Please try again.",
+        )
+    except (ValidationError, ValueError):
+        del history[count_before:]
+        raise HTTPException(
+            status_code=502,
+            detail="The chef assistant could not process the conversation.",
+        )
 
     new_messages = history[count_before:]                                    
     save_messages(session_id, [m.model_dump_json(exclude_none=True) for m in new_messages])  
