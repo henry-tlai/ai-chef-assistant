@@ -16,7 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Chef Assistant",
-  description: "A cooking assistant that suggests recipes and walks you through them",
+  description:
+  "An AI cooking assistant that helps you discover recipes, save favorites, and follow step-by-step cooking instructions.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
