@@ -55,7 +55,17 @@ def chat_endpoint(req: ChatRequest):
 
     if session_id not in sessions:
         saved = load_messages(session_id)
-        sessions[session_id] = [types.Content.model_validate_json(s) for s in saved]  
+        history = []
+
+        for message in saved:
+            try:
+                content = types.Content.model_validate_json(message)
+            except ValidationError:
+                continue
+
+            history.append(content)
+
+        sessions[session_id] = history
 
     history = sessions[session_id]
     count_before = len(history)
@@ -271,7 +281,9 @@ def conversations_endpoint():
             content = types.Content.model_validate_json(first_json)
         except ValidationError:
             continue                      # skip rows that aren't real messages
-        text = "".join(p.text for p in (content.parts or []) if p.text)
+        text = "".join(
+            p.text for p in (content.parts or []) if p.text
+        )
         title = text[:TITLE_LENGTH] + ("..." if len(text) > TITLE_LENGTH else "")
         result.append({"session_id": session_id, "title": title or "Untitled chat"})
     return result
