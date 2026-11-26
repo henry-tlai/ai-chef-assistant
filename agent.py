@@ -19,6 +19,9 @@ def chat_stream(history, user_message):
                 if p.text and not p.thought:
                     yield p.text                       
                     
+        if not parts:
+            raise RuntimeError("Gemini returned an empty response.")
+
         reply = types.Content(role="model", parts=parts)
         history.append(reply)
 
@@ -30,7 +33,10 @@ def chat_stream(history, user_message):
             if call.name not in TOOLS:
                 result = f"Error: Unknown tool '{call.name}'."
             else:
-                result = TOOLS[call.name](**call.args)
+                try:
+                    result = TOOLS[call.name](**call.args)
+                except (ValueError, TypeError, KeyError, RuntimeError) as error:
+                    result = f"Error executing tool: {error}"
             history.append(
                 types.Content(
                     role="user",
