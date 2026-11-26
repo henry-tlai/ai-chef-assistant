@@ -27,6 +27,15 @@ def save_favorite(
     if step_timer_maxes is None:
         step_timer_maxes = step_timers.copy()
 
+    if not all(isinstance(timer, int) and not isinstance(timer, bool) for timer in step_timers):
+        return "Could not save: timer values must be integers."
+
+    if not all(
+        isinstance(timer, int) and not isinstance(timer, bool)
+        for timer in step_timer_maxes
+    ):
+        return "Could not save: timer values must be integers."
+
     if len(steps) != len(step_timers) or len(steps) != len(step_timer_maxes):
         return "Could not save: every cooking step needs matching minimum and maximum timer values."
 
