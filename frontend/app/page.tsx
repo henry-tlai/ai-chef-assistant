@@ -1,28 +1,32 @@
-  "use client";
 
-  import { useEffect, useRef, useState } from "react";
-  import { HistoryPanel } from "@/components/history-panel";
-  import { Markdown } from "@/components/markdown";
+"use client";
 
-  const API_URL = "http://127.0.0.1:8000";
+import { useEffect, useRef, useState } from "react";
+import { HistoryPanel } from "@/components/history-panel";
+import { Markdown } from "@/components/markdown";
+import { API_URL, request } from "@/lib/api";
 
-  type Message = { role: "user" | "assistant"; content: string };
-  type Chat = { session_id: string; title: string };
+type Message = { role: "user" | "assistant"; content: string };
+type Chat = { session_id: string; title: string };
 
-  // Keep the address bar in sync with the current chat, so a reload finds it again.
-  function updateUrl(id: string | null) {
-  window.history.replaceState(null, "", id ? `?session=${id}` : window.location.pathname);
-  }
+// Keep the address bar in sync with the current chat.
+function updateUrl(id: string | null) {
+  window.history.replaceState(
+    null,
+    "",
+    id ? `?session=${id}` : window.location.pathname
+  );
+}
 
-  function isRecipeResponse(content: string): boolean {
-    const hasIngredients = /^#{0,3}\s*ingredients\b/im.test(content);
-    const hasInstructions =
-      /^#{0,3}\s*(steps|instructions|directions|method)\b/im.test(content);
+function isRecipeResponse(content: string): boolean {
+  const hasIngredients = /^#{0,3}\s*ingredients\b/im.test(content);
+  const hasInstructions =
+    /^#{0,3}\s*(steps|instructions|directions|method)\b/im.test(content);
 
-    return hasIngredients && hasInstructions;
-  }
+  return hasIngredients && hasInstructions;
+}
 
-  export default function Home() {
+export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [input, setInput] = useState("");
@@ -31,60 +35,61 @@
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState("");
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const [savingFavorites, setSavingFavorites] = useState<number[]>([]);
-  const [savedFavorites, setSavedFavorites] = useState<number[]>([]);
+  const [savingFavorites, setSavingFavorites] = useState<string[]>([]);
+  const [savedFavorites, setSavedFavorites] = useState<string[]>([]);
 
   // References
   const panelRef = useRef<HTMLDialogElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);   
-  const stickToBottom = useRef(true);              
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const stickToBottom = useRef(true);
 
-  // Ask the backend for the list of saved chats.
+  // Load the list of saved chats.
   async function loadChats() {
     try {
-      const res = await fetch(`${API_URL}/conversations`);
-      if (!res.ok) throw new Error("Request failed");
-      setChats(await res.json());
+      setChats(await request<Chat[]>("/conversations"));
     } catch {
       setChats([]);
     }
   }
 
-  // Load one saved chat's messages and make it the current conversation.
+  // Load one saved chat and make it the current conversation.
   async function openChat(id: string) {
     try {
-      const res = await fetch(`${API_URL}/history/${id}`);
-      if (!res.ok) throw new Error("Request failed");
       stickToBottom.current = true;
-      setMessages(await res.json());
+      setMessages(await request<Message[]>(`/history/${id}`));
       setSessionId(id);
       updateUrl(id);
     } catch {
-      setMessages([{ role: "assistant", content: "Couldn't load that chat." }]);
+      setMessages([
+        { role: "assistant", content: "Couldn't load that chat." },
+      ]);
     }
   }
 
-  // Start a fresh conversation: clear the screen, the session id, and the URL.
+  // Start a fresh conversation.
   function newChat() {
     if (loading) return;
+
     setMessages([]);
     setSessionId(null);
+    setHistoryError("");
+    setShowScrollButton(false);
     updateUrl(null);
   }
 
-  // Delete a saved chat. Only called after the user confirms.
+  // Delete a saved chat after confirmation.
   async function deleteChat(id: string) {
     try {
-      const res = await fetch(`${API_URL}/conversations/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Request failed");
+      await request(`/conversations/${id}`, { method: "DELETE" });
+
       if (id === sessionId) {
-        // Deleted the chat we are viewing, so reset the screen and the URL too.
         setMessages([]);
         setSessionId(null);
         updateUrl(null);
       }
+
       setHistoryError("");
-      loadChats();
+      await loadChats();
     } catch {
       setHistoryError("Couldn't delete that chat.");
     } finally {
@@ -92,47 +97,45 @@
     }
   }
 
-  async function saveFavorite(messageIndex: number) {
-    const message = messages[messageIndex];
+  // Save a recipe to favorites.
+  async function saveFavorite(recipeContent: string) {
+    if (savingFavorites.includes(recipeContent)) return;
+    if (savedFavorites.includes(recipeContent)) return;
 
-    if (!message || savingFavorites.includes(messageIndex)) return;
-    if (savedFavorites.includes(messageIndex)) return;
-
-    setSavingFavorites((prev) => [...prev, messageIndex]);
+    setSavingFavorites((prev) => [...prev, recipeContent]);
 
     try {
-      const res = await fetch(`${API_URL}/favorites/from-recipe`, {
+      await request("/favorites/from-recipe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipe_text: message.content }),
+        body: JSON.stringify({ recipe_text: recipeContent }),
       });
 
-      if (!res.ok) {
-        throw new Error("Could not save recipe");
-      }
-
-      setSavedFavorites((prev) => [...prev, messageIndex]);
+      setSavedFavorites((prev) => [...prev, recipeContent]);
     } catch {
       alert("Couldn't save this recipe. Please try again.");
     } finally {
       setSavingFavorites((prev) =>
-        prev.filter((index) => index !== messageIndex)
+        prev.filter((content) => content !== recipeContent)
       );
     }
   }
 
-  // Send the user's message and show the chef's reply as it streams in.
+  // Send the user's message and display the chef's reply as it streams in.
   async function send() {
     const text = input.trim();
+
     if (!text || loading) return;
+
     stickToBottom.current = true;
 
-    // Show the user's message now, plus an empty assistant bubble to fill in.
+    // Display the user's message and an empty assistant message.
     setMessages((prev) => [
       ...prev,
       { role: "user", content: text },
       { role: "assistant", content: "" },
     ]);
+
     setInput("");
     setLoading(true);
 
@@ -142,32 +145,63 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, session_id: sessionId }),
       });
-      if (!res.ok || !res.body) throw new Error("Request failed");
 
-      // The session id arrives in a response header, before the text starts.
+      if (!res.ok || !res.body) {
+        throw new Error("Request failed");
+      }
+
+      // Get the session ID from the response header.
       const newId = res.headers.get("X-Session-Id");
+
       if (newId) {
         setSessionId(newId);
         updateUrl(newId);
       }
 
-      // Read the reply piece by piece and append each piece to the last message.
+      // Read the streamed response.
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
 
       while (true) {
         const { done, value } = await reader.read();
+
         if (done) break;
+
         const piece = decoder.decode(value, { stream: true });
+
+        if (piece) {
+          setMessages((prev) => {
+            const copy = [...prev];
+            const last = copy[copy.length - 1];
+
+            copy[copy.length - 1] = {
+              ...last,
+              content: last.content + piece,
+            };
+
+            return copy;
+          });
+        }
+      }
+
+      // Flush any remaining buffered characters.
+      const remaining = decoder.decode();
+
+      if (remaining) {
         setMessages((prev) => {
           const copy = [...prev];
           const last = copy[copy.length - 1];
-          copy[copy.length - 1] = { ...last, content: last.content + piece };
+
+          copy[copy.length - 1] = {
+            ...last,
+            content: last.content + remaining,
+          };
+
           return copy;
         });
       }
     } catch {
-      // Replace the half-written bubble with an error message.
+      // Replace the incomplete response with an error message.
       setMessages((prev) => [
         ...prev.slice(0, -1),
         {
@@ -177,52 +211,58 @@
       ]);
     } finally {
       setLoading(false);
-      loadChats(); // a new chat only exists in the database after its first reply
+      await loadChats();
     }
   }
 
+  // Track whether the user has scrolled away from the latest message.
   function onScroll() {
-  const el = scrollRef.current;
-  if (!el) return;
+    const el = scrollRef.current;
 
-  const isAtBottom =
-    el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (!el) return;
 
-  stickToBottom.current = isAtBottom;
-  setShowScrollButton(!isAtBottom);
+    const isAtBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+
+    stickToBottom.current = isAtBottom;
+    setShowScrollButton(!isAtBottom);
   }
 
-  // When the page first opens: load the chat list, and reopen the chat named in the URL.
+  // Load the chat list and reopen the chat specified in the URL.
   useEffect(() => {
     async function initialize() {
       try {
-        const res = await fetch(`${API_URL}/conversations`);
-        if (!res.ok) throw new Error("Request failed");
-        setChats(await res.json());
+        const loadedChats = await request<Chat[]>("/conversations");
+        setChats(loadedChats);
       } catch {
         setChats([]);
       }
 
       const id = new URLSearchParams(window.location.search).get("session");
-      if (id) openChat(id);
+
+      if (id) {
+        await openChat(id);
+      }
     }
 
     initialize();
   }, []);
 
+  // Automatically scroll when new messages arrive if the user is at the bottom.
   useEffect(() => {
     const el = scrollRef.current;
 
-    if (el && stickToBottom.current){
+    if (el && stickToBottom.current) {
       el.scrollTo({ top: el.scrollHeight });
     }
   }, [messages]);
 
   return (
     <div className="flex h-dvh min-h-0 flex-col bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
-      {/* Header: title, New chat, and the History button */}
+      {/* Header */}
       <header className="flex items-center justify-between gap-2 border-b border-stone-200 px-4 py-3 dark:border-stone-800">
         <h1 className="text-lg font-semibold">🍳 Chef Assistant</h1>
+
         <div className="flex gap-2">
           <button
             onClick={newChat}
@@ -231,6 +271,7 @@
           >
             New chat
           </button>
+
           <button
             onClick={() => panelRef.current?.showModal()}
             disabled={loading}
@@ -248,89 +289,87 @@
         </p>
       )}
 
-      
-  {/* Messages */}
-  <div className="relative min-h-0 flex-1">
+      {/* Messages */}
+      <div className="relative min-h-0 flex-1">
+        {/* Scrollable message area */}
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className="h-full overflow-y-auto p-4 md:p-6"
+        >
+          <div className="mx-auto flex max-w-2xl flex-col gap-3">
+            {messages.map((m, i) => {
+              if (m.role === "assistant" && m.content === "") return null;
 
-  {/* Scrollable message area */}
-  <div
-    ref={scrollRef}
-    onScroll={onScroll}
-    className="h-full overflow-y-auto p-4 md:p-6"
-  >
-    <div className="mx-auto flex max-w-2xl flex-col gap-3">
-      {messages.map((m, i) => {
-        if (m.role === "assistant" && m.content === "") return null;
+              return (
+                <div
+                  key={i}
+                  className={
+                    m.role === "user"
+                      ? "max-w-[85%] self-end whitespace-pre-wrap rounded-2xl rounded-br-sm bg-amber-600 px-4 py-2 text-white shadow-sm"
+                      : "max-w-[85%] self-start break-words rounded-2xl rounded-bl-sm border border-stone-200 bg-white px-4 py-2 shadow-sm dark:border-stone-700 dark:bg-stone-800"
+                  }
+                >
+                  {m.role === "assistant" ? (
+                    <>
+                      <Markdown>{m.content}</Markdown>
 
-        return (
-          <div
-            key={i}
-            className={
-              m.role === "user"
-                ? "max-w-[85%] self-end whitespace-pre-wrap rounded-2xl rounded-br-sm bg-amber-600 px-4 py-2 text-white shadow-sm"
-                : "max-w-[85%] self-start break-words rounded-2xl rounded-bl-sm border border-stone-200 bg-white px-4 py-2 shadow-sm dark:border-stone-700 dark:bg-stone-800"
-            }
-          >
-            {m.role === "assistant" ? (
-              <>
-                <Markdown>{m.content}</Markdown>
+                      {!(loading && i === messages.length - 1) &&
+                        isRecipeResponse(m.content) && (
+                          <div className="mt-3 border-t border-stone-100 pt-2 dark:border-stone-700">
+                            <button
+                              onClick={() => saveFavorite(m.content)}
+                              disabled={
+                                savingFavorites.includes(m.content) ||
+                                savedFavorites.includes(m.content)
+                              }
+                              className="text-sm text-stone-500 transition hover:text-amber-600 disabled:cursor-default disabled:opacity-70 dark:text-stone-400"
+                            >
+                              {savedFavorites.includes(m.content)
+                                ? "♥ Saved"
+                                : savingFavorites.includes(m.content)
+                                  ? "Saving..."
+                                  : "♡ Favorite"}
+                            </button>
+                          </div>
+                        )}
+                    </>
+                  ) : (
+                    m.content
+                  )}
+                </div>
+              );
+            })}
 
-                {!(loading && i === messages.length - 1) && isRecipeResponse(m.content) && (
-                  <div className="mt-3 border-t border-stone-100 pt-2 dark:border-stone-700">
-                    <button
-                      onClick={() => saveFavorite(i)}
-                      disabled={
-                        savingFavorites.includes(i) ||
-                        savedFavorites.includes(i)
-                      }
-                      className="text-sm text-stone-500 transition hover:text-amber-600 disabled:cursor-default disabled:opacity-70 dark:text-stone-400"
-                    >
-                      {savedFavorites.includes(i)
-                        ? "♥ Saved"
-                        : savingFavorites.includes(i)
-                          ? "Saving..."
-                          : "♡ Favorite"}
-                    </button>
-                  </div>
-                )}
-              </>
-            ) : (
-              m.content
+            {loading && messages[messages.length - 1]?.content === "" && (
+              <div className="animate-pulse self-start text-sm text-stone-500">
+                Chef is thinking...
+              </div>
             )}
           </div>
-        );
-      })}
-
-      {loading && messages[messages.length - 1]?.content === "" && (
-        <div className="animate-pulse self-start text-sm text-stone-500">
-          Chef is thinking...
         </div>
-      )}
-    </div>
-  </div>
 
-  {/* Floating scroll-to-bottom button */}
-  {showScrollButton && (
-    <button
-      onClick={() => {
-        stickToBottom.current = true;
-        scrollRef.current?.scrollTo({
-          top: scrollRef.current.scrollHeight,
-          behavior: "smooth",
-        });
-      }}
-      aria-label="Scroll to latest message"
-      title="Scroll to latest message"
-      className="absolute bottom-5 left-1/2 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-stone-300 bg-white text-stone-700 shadow-lg transition hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100 dark:hover:bg-stone-700"
-    >
-      ↓
-    </button>
-  )}
+        {/* Floating scroll-to-bottom button */}
+        {showScrollButton && (
+          <button
+            onClick={() => {
+              stickToBottom.current = true;
 
-  </div>
+              scrollRef.current?.scrollTo({
+                top: scrollRef.current.scrollHeight,
+                behavior: "smooth",
+              });
+            }}
+            aria-label="Scroll to latest message"
+            title="Scroll to latest message"
+            className="absolute bottom-5 left-1/2 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-stone-300 bg-white text-stone-700 shadow-lg transition hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100 dark:hover:bg-stone-700"
+          >
+            ↓
+          </button>
+        )}
+      </div>
 
-
-      {/* Input row, pinned at the bottom */}
+      {/* Input row */}
       <div className="shrink-0 border-t border-stone-200 bg-white p-3 dark:border-stone-800 dark:bg-stone-900">
         <div className="mx-auto flex max-w-2xl gap-2">
           <input
@@ -341,6 +380,7 @@
             placeholder="What are we cooking?"
             aria-label="Message the chef"
           />
+
           <button
             className="rounded-xl bg-amber-600 px-5 py-2.5 font-medium text-white transition hover:bg-amber-700 disabled:opacity-50"
             onClick={send}
@@ -351,7 +391,7 @@
         </div>
       </div>
 
-      {/* History panel: a bottom sheet on phones, a side panel on desktop */}
+      {/* Chat history panel */}
       <HistoryPanel
         ref={panelRef}
         chats={chats}
@@ -367,4 +407,4 @@
       />
     </div>
   );
-  }
+}
