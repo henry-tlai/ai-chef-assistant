@@ -23,13 +23,33 @@ def init_db():
         if "recipe_json" not in columns:                                
             conn.execute("ALTER TABLE favorites ADD COLUMN recipe_json TEXT")  
 
-
 def save_favorite(title, recipe, recipe_json=None):
     with sqlite3.connect(DB_PATH) as conn:
+        # Prevent two save requests from inserting the same title at once.
+        conn.execute("BEGIN IMMEDIATE")
+
+        existing = conn.execute(
+            """
+            SELECT 1
+            FROM favorites
+            WHERE LOWER(TRIM(title)) = LOWER(TRIM(?))
+            LIMIT 1
+            """,
+            (title,),
+        ).fetchone()
+
+        if existing:
+            return False
+
         conn.execute(
-            "INSERT INTO favorites (title, recipe, recipe_json) VALUES (?, ?, ?)",  
-            (title, recipe, recipe_json),                                            
+            """
+            INSERT INTO favorites (title, recipe, recipe_json)
+            VALUES (?, ?, ?)
+            """,
+            (title, recipe, recipe_json),
         )
+
+    return True
 
 def list_favorites():
     with sqlite3.connect(DB_PATH) as conn:
