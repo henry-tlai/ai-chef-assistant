@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from google.genai import types
 from pydantic import BaseModel, ValidationError
 
+import db
 from agent import chat, chat_stream
 from db import (
     delete_conversation,
@@ -15,9 +16,11 @@ from db import (
     list_conversations,
     list_favorites,
     load_messages,
+    save_favorite,
     save_messages,
 )
-from recipes import Recipe
+from llm import ask_model
+from recipes import Recipe, to_text
 
 init_db()
 app = FastAPI()
@@ -42,6 +45,9 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     session_id: str
+
+class FavoriteRecipeRequest(BaseModel):
+    recipe_text: str
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -118,6 +124,96 @@ def favorite_detail_endpoint(favorite_id: int):
     return {
         "id": favorite_id,
         **recipe.model_dump(),
+    }
+
+@app.post("/favorites/from-recipe")
+def save_recipe_from_chat(req: FavoriteRecipeRequest):
+    if not req.recipe_text.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Recipe text cannot be empty",
+        )
+
+    prompt = """
+    Convert the following recipe into structured JSON.
+
+    Return only valid JSON matching this structure:
+    {
+        "title": "Recipe name",
+        "servings": null,
+        "total_minutes": null,
+        "ingredients": ["ingredient with amount"],
+        "steps": [
+            {
+                "text": "Cooking instruction",
+                "timer_seconds": null,
+                "image_url": null
+            }
+        ]
+    }
+
+    Rules:
+    - Preserve the original recipe's ingredients and instructions.
+    - Do not invent ingredients or cooking instructions.
+    - Include cooking durations as timer_seconds in seconds when
+      explicitly stated or reasonably inferable.
+    - Use null when no useful timer applies.
+    - Use null for unknown servings, total_minutes, and image_url.
+    - Include every cooking step in the correct order.
+    - Do not include Markdown formatting or code fences.
+    - Never use an em dash character.
+    """
+
+    try:
+        response = ask_model(
+            [
+                types.Content(
+                    role="user",
+                    parts=[types.Part(text=req.recipe_text)],
+                )
+            ],
+            prompt,
+        )
+
+        response_text = "".join(
+            part.text or ""
+            for part in (response.parts or [])
+            if part.text
+        )
+
+        recipe = Recipe.model_validate_json(response_text)
+
+    except (ValidationError, ValueError):
+        raise HTTPException(
+            status_code=502,
+            detail="Could not convert the recipe into valid structured data",
+        )
+    except (RuntimeError, TimeoutError):
+        raise HTTPException(
+            status_code=502,
+            detail="Recipe conversion failed",
+        )
+
+    existing = db.find_favorite(recipe.title)
+
+    for existing_title, _, _ in existing:
+        if existing_title.strip().lower() == recipe.title.strip().lower():
+            return {
+                "saved": True,
+                "title": existing_title,
+                "already_saved": True,
+            }
+
+    save_favorite(
+        recipe.title,
+        to_text(recipe),
+        recipe.model_dump_json(),
+    )
+
+    return {
+        "saved": True,
+        "title": recipe.title,
+        "already_saved": False,
     }
 
 @app.get("/history/{session_id}")
