@@ -29,6 +29,9 @@ def ask_model(history, system_prompt, tools=None):
             ),
         ),
     )
+    if not response.candidates:
+        raise RuntimeError("Gemini returned no response.")
+
     return response.candidates[0].content
 
 
