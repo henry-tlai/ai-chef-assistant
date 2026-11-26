@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { request } from "@/lib/api";
@@ -21,7 +21,7 @@ type Recipe = {
     steps: RecipeStep[];
 };
 
-export default function CookingPage() {
+function CookingContent() {
     const params = useParams<{ favoriteId: string }>();
     const router = useRouter();
 
@@ -84,7 +84,7 @@ export default function CookingPage() {
         </section>
     );
     }
-
+    
     const step = recipe.steps[currentStep];
     const isFirstStep = currentStep === 0;
     const isLastStep = currentStep === recipe.steps.length - 1;
@@ -145,51 +145,53 @@ export default function CookingPage() {
             />
             </div>
 
-            <p className="mt-8 text-lg leading-relaxed text-stone-800 dark:text-stone-200">
-            {step.text}
-            {step.timer_seconds !== null && step.timer_seconds > 0 && (
-            <div className="mt-6 rounded-lg bg-stone-100 p-4 dark:bg-stone-800">
-                <p className="text-center text-sm text-stone-500">
-                Step Timer
+            <div className="mt-8">
+                <p className="text-lg leading-relaxed text-stone-800 dark:text-stone-200">
+                    {step.text}
                 </p>
 
-                <p className="my-3 text-center text-3xl font-bold tabular-nums">
-                {Math.floor(timeLeft / 60)
-                    .toString()
-                    .padStart(2, "0")}
-                :
-                {(timeLeft % 60).toString().padStart(2, "0")}
-                </p>
+                {step.timer_seconds !== null && step.timer_seconds > 0 && (
+                    <div className="mt-6 rounded-lg bg-stone-100 p-4 dark:bg-stone-800">
+                        <p className="text-center text-sm text-stone-500">
+                            Step Timer
+                        </p>
 
-                <div className="flex justify-center gap-3">
-                <button
-                    onClick={() => setTimerRunning(!timerRunning)}
-                    disabled={timeLeft === 0}
-                    className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-                >
-                    {timerRunning ? "Pause" : "Start"}
-                </button>
+                        <p className="my-3 text-center text-3xl font-bold tabular-nums">
+                            {Math.floor(timeLeft / 60)
+                                .toString()
+                                .padStart(2, "0")}
+                            :
+                            {(timeLeft % 60).toString().padStart(2, "0")}
+                        </p>
 
-                <button
-                    onClick={() => {
-                    setTimerRunning(false);
-                    setTimeLeft(step.timer_seconds ?? 0);
-                    }}
-                    className="rounded-lg border border-stone-300 px-4 py-2 text-sm dark:border-stone-600"
-                >
-                    Reset
-                </button>
-                </div>
+                        <div className="flex justify-center gap-3">
+                            <button
+                                onClick={() => setTimerRunning(!timerRunning)}
+                                disabled={timeLeft === 0}
+                                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+                            >
+                                {timerRunning ? "Pause" : "Start"}
+                            </button>
 
-                {timeLeft === 0 && (
-                <p className="mt-3 text-center text-sm font-medium text-green-600">
-                    Timer complete!
-                </p>
+                            <button
+                                onClick={() => {
+                                    setTimerRunning(false);
+                                    setTimeLeft(step.timer_seconds ?? 0);
+                                }}
+                                className="rounded-lg border border-stone-300 px-4 py-2 text-sm dark:border-stone-600"
+                            >
+                                Reset
+                            </button>
+                        </div>
+
+                        {timeLeft === 0 && (
+                            <p className="mt-3 text-center text-sm font-medium text-green-600">
+                                Timer complete!
+                            </p>
+                        )}
+                    </div>
                 )}
             </div>
-            )}
-            </p>
-
             <div className="mt-8 flex items-center justify-between">
             <button
                 onClick={() => {
@@ -230,3 +232,11 @@ export default function CookingPage() {
     </section>
     );
     }
+
+export default function CookingPage() {
+    return (
+        <Suspense fallback={<div className="p-6 text-stone-500">Loading recipe...</div>}>
+            <CookingContent />
+        </Suspense>
+    );
+}
