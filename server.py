@@ -4,9 +4,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from google.genai import types
-from pydantic import BaseModel, ValidationError
+from google.genai.errors import APIError
+from pydantic import BaseModel, Field, ValidationError
 
-import db
 from agent import chat, chat_stream
 from db import (
     delete_conversation,
@@ -38,7 +38,7 @@ TITLE_LENGTH = 30
 
 
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(min_length=1, max_length=10000)
     session_id: str | None = None
 
 
@@ -47,8 +47,7 @@ class ChatResponse(BaseModel):
     session_id: str
 
 class FavoriteRecipeRequest(BaseModel):
-    recipe_text: str
-
+    recipe_text: str = Field(min_length=1, max_length=20000)
 
 @app.post("/chat", response_model=ChatResponse)
 def chat_endpoint(req: ChatRequest):
@@ -82,7 +81,7 @@ def chat_stream_endpoint(req: ChatRequest):
     def generate():
         try:
             yield from chat_stream(history, req.message)
-        except BaseException:
+        except Exception:
             del history[count_before:]
             raise
 
@@ -193,45 +192,45 @@ def save_recipe_from_chat(req: FavoriteRecipeRequest):
             status_code=502,
             detail="Could not convert the recipe into valid structured data",
         )
-    except (RuntimeError, TimeoutError):
+    except (APIError, RuntimeError, TimeoutError):
         raise HTTPException(
             status_code=502,
             detail="Recipe conversion failed",
         )
 
-    existing = db.find_favorite(recipe.title)
-
-    for existing_title, _, _ in existing:
-        if existing_title.strip().lower() == recipe.title.strip().lower():
-            return {
-                "saved": True,
-                "title": existing_title,
-                "already_saved": True,
-            }
-
-    save_favorite(
-        recipe.title,
-        to_text(recipe),
-        recipe.model_dump_json(),
+    saved = save_favorite(
+    recipe.title,
+    to_text(recipe),
+    recipe.model_dump_json(),
     )
 
     return {
         "saved": True,
         "title": recipe.title,
-        "already_saved": False,
+        "already_saved": not saved,
     }
 
 @app.get("/history/{session_id}")
 def history_endpoint(session_id: str):
     saved = load_messages(session_id)
     messages = []
+
     for s in saved:
-        content = types.Content.model_validate_json(s)
-        text = "".join(p.text for p in (content.parts or []) if p.text)
+        try:
+            content = types.Content.model_validate_json(s)
+        except ValidationError:
+            continue
+
+        text = "".join(
+            p.text for p in (content.parts or []) if p.text
+        )
+
         if not text:
-            continue                                
-        role = "assistant" if content.role == "model" else "user"    
+            continue
+
+        role = "assistant" if content.role == "model" else "user"
         messages.append({"role": role, "content": text})
+
     return messages
 
 @app.delete("/favorites/{favorite_id}")
@@ -257,7 +256,9 @@ def conversations_endpoint():
 @app.delete("/conversations/{session_id}")
 def delete_conversation_endpoint(session_id: str):
     deleted = delete_conversation(session_id)
-    sessions.pop(session_id, None)                 
+
     if not deleted:
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+    sessions.pop(session_id, None)
     return {"deleted": session_id}
