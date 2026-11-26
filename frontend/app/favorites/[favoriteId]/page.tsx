@@ -9,6 +9,7 @@ import { request } from "@/lib/api";
 type RecipeStep = {
     text: string;
     timer_seconds: number | null;
+    timer_max_seconds: number | null;
     image_url: string | null;
 };
 
@@ -32,6 +33,7 @@ function CookingContent() {
     const [error, setError] = useState("");
     const [currentStep, setCurrentStep] = useState(0);
     const [timeLeft, setTimeLeft] = useState(0);
+    const [selectedDuration, setSelectedDuration] = useState(0);
     const [timerRunning, setTimerRunning] = useState(false);
 
     // Countdown the timer when it's running.
@@ -59,7 +61,9 @@ function CookingContent() {
         try {
             const data = await request<Recipe>(`/favorites/${favoriteId}`);
             setRecipe(data);
-            setTimeLeft(data.steps[0]?.timer_seconds ?? 0);
+            const initialDuration = data.steps[0]?.timer_seconds ?? 0;
+            setSelectedDuration(initialDuration);
+            setTimeLeft(initialDuration);
         } catch {
             setError("Unable to load this recipe.");
         } finally {
@@ -155,7 +159,41 @@ function CookingContent() {
                         <p className="text-center text-sm text-stone-500">
                             Step Timer
                         </p>
+                        {step.timer_max_seconds !== null && step.timer_max_seconds > (step.timer_seconds ?? 0) && (
+                            <div className="mt-4">
+                                <p className="mb-2 text-center text-sm text-stone-500">
+                                    Choose your starting duration
+                                </p>
 
+                                <div className="flex justify-center gap-2">
+                                    {Array.from(
+                                        {
+                                            length:
+                                                Math.floor(
+                                                    (step.timer_max_seconds - step.timer_seconds!) / 60
+                                                ) + 1,
+                                        },
+                                        (_, index) => step.timer_seconds! + index * 60
+                                    ).map((duration) => (
+                                        <button
+                                            key={duration}
+                                            onClick={() => {
+                                                setSelectedDuration(duration);
+                                                setTimeLeft(duration);
+                                            }}
+                                            disabled={timerRunning}
+                                            className={`rounded-lg border px-3 py-2 text-sm ${
+                                                selectedDuration === duration
+                                                    ? "border-amber-600 bg-amber-100 text-amber-900"
+                                                    : "border-stone-300 dark:border-stone-600"
+                                            } disabled:opacity-50`}
+                                        >
+                                            {Math.floor(duration / 60)} min
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <p className="my-3 text-center text-3xl font-bold tabular-nums">
                             {Math.floor(timeLeft / 60)
                                 .toString()
@@ -176,7 +214,7 @@ function CookingContent() {
                             <button
                                 onClick={() => {
                                     setTimerRunning(false);
-                                    setTimeLeft(step.timer_seconds ?? 0);
+                                    setTimeLeft(selectedDuration);
                                 }}
                                 className="rounded-lg border border-stone-300 px-4 py-2 text-sm dark:border-stone-600"
                             >
@@ -185,9 +223,22 @@ function CookingContent() {
                         </div>
 
                         {timeLeft === 0 && (
-                            <p className="mt-3 text-center text-sm font-medium text-green-600">
-                                Timer complete!
-                            </p>
+                            <div className="mt-3 text-center">
+                                <p className="text-sm font-medium text-green-600">
+                                    Timer complete!
+                                </p>
+
+                                <button
+                                    onClick={() => {
+                                        setSelectedDuration(selectedDuration + 60);
+                                        setTimeLeft(60);
+                                        setTimerRunning(true);
+                                    }}
+                                    className="mt-3 rounded-lg border border-amber-600 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300"
+                                >
+                                    Add 1 more minute
+                                </button>
+                            </div>
                         )}
                     </div>
                 )}
@@ -196,8 +247,11 @@ function CookingContent() {
             <button
                 onClick={() => {
                     const nextStep = currentStep - 1;
+                    const nextDuration = recipe.steps[nextStep].timer_seconds ?? 0;
+
                     setCurrentStep(nextStep);
-                    setTimeLeft(recipe.steps[nextStep].timer_seconds ?? 0);
+                    setSelectedDuration(nextDuration);
+                    setTimeLeft(nextDuration);
                     setTimerRunning(false);
                 }}
                 disabled={isFirstStep}
@@ -217,8 +271,11 @@ function CookingContent() {
                 <button
                 onClick={() => {
                     const nextStep = currentStep + 1;
+                    const nextDuration = recipe.steps[nextStep].timer_seconds ?? 0;
+
                     setCurrentStep(nextStep);
-                    setTimeLeft(recipe.steps[nextStep].timer_seconds ?? 0);
+                    setSelectedDuration(nextDuration);
+                    setTimeLeft(nextDuration);
                     setTimerRunning(false);
                 }}
                 className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
