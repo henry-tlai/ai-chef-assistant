@@ -86,7 +86,17 @@ def chat_stream_endpoint(req: ChatRequest):
 
     if session_id not in sessions:
         saved = load_messages(session_id)
-        sessions[session_id] = [types.Content.model_validate_json(s) for s in saved]
+        history = []
+
+        for message in saved:
+            try:
+                content = types.Content.model_validate_json(message)
+            except ValidationError:
+                continue
+
+            history.append(content)
+
+        sessions[session_id] = history
 
     history = sessions[session_id]
     count_before = len(history)
