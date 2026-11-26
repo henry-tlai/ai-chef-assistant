@@ -1,11 +1,12 @@
 import sqlite3
 from contextlib import contextmanager
+from pathlib import Path
 
-DB_PATH = "chef.db"
+DB_PATH = Path(__file__).resolve().parent / "chef.db"
 
 @contextmanager
 def get_connection():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
 
     try:
         with conn:
