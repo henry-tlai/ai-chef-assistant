@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -27,18 +28,22 @@ function NavItem({ href, label, className = "" }: { href: string; label: string;
   );
 }
 
-export function NavRail() {   // desktop: slim column on the left
+export function NavRail() {
   return (
-    <nav aria-label="Main" className="hidden w-40 shrink-0 flex-col gap-1 border-r border-stone-200 bg-white p-3 md:flex dark:border-stone-800 dark:bg-stone-900">
-      {NAV.map((n) => <NavItem key={n.href} {...n} />)}
-    </nav>
+    <Suspense fallback={<nav aria-label="Main" className="hidden w-40 shrink-0 md:flex" />}>
+      <nav aria-label="Main" className="hidden w-40 shrink-0 flex-col gap-1 border-r border-stone-200 bg-white p-3 md:flex dark:border-stone-800 dark:bg-stone-900">
+        {NAV.map((n) => <NavItem key={n.href} {...n} />)}
+      </nav>
+    </Suspense>
   );
 }
 
-export function TabBar() {    // phone: bar along the bottom
+export function TabBar() {
   return (
-    <nav aria-label="Main" className="flex shrink-0 gap-1 border-t border-stone-200 bg-white p-2 md:hidden dark:border-stone-800 dark:bg-stone-900">
-      {NAV.map((n) => <NavItem key={n.href} {...n} className="flex-1 text-center" />)}
-    </nav>
+    <Suspense fallback={<nav aria-label="Main" className="flex shrink-0 gap-1 p-2 md:hidden" />}>
+      <nav aria-label="Main" className="flex shrink-0 gap-1 border-t border-stone-200 bg-white p-2 md:hidden dark:border-stone-800 dark:bg-stone-900">
+        {NAV.map((n) => <NavItem key={n.href} {...n} className="flex-1 text-center" />)}
+      </nav>
+    </Suspense>
   );
 }
