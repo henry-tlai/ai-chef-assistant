@@ -184,3 +184,24 @@ def test_save_favorite_rejects_incomplete_timer_range(temp_db):
     # Assert
     assert "use 0 for both timer values" in result
     assert db.list_favorites() == []
+
+def test_save_favorite_rejects_non_integer_timer_values(temp_db):
+    # Arrange
+    title = "Chicken"
+    ingredients = ["chicken"]
+    steps = ["Cook chicken"]
+    step_timers = ["600"]
+    step_timer_maxes = [720]
+
+    # Act
+    result = tools.save_favorite(
+        title,
+        ingredients,
+        steps,
+        step_timers,
+        step_timer_maxes,
+    )
+
+    # Assert
+    assert "timer values must be integers" in result
+    assert db.list_favorites() == []
