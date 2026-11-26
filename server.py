@@ -60,7 +60,11 @@ def chat_endpoint(req: ChatRequest):
     history = sessions[session_id]
     count_before = len(history)
 
-    reply = chat(history, req.message)
+    try:
+        reply = chat(history, req.message)
+    except Exception:
+        del history[count_before:]
+        raise
 
     new_messages = history[count_before:]                                    
     save_messages(session_id, [m.model_dump_json(exclude_none=True) for m in new_messages])  
@@ -199,9 +203,9 @@ def save_recipe_from_chat(req: FavoriteRecipeRequest):
         )
 
     saved = save_favorite(
-    recipe.title,
-    to_text(recipe),
-    recipe.model_dump_json(),
+        recipe.title,
+        to_text(recipe),
+        recipe.model_dump_json(),
     )
 
     return {
