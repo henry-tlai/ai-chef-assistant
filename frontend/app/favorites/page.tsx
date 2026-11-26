@@ -3,8 +3,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { request } from "@/lib/api";
 import { ConfirmRow } from "@/components/ui/confirm-row";
+import { request } from "@/lib/api";
 
 type Favorite = {
   id: number;
@@ -16,6 +16,7 @@ export default function FavoritesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // Load saved recipes when the page opens.
   useEffect(() => {
@@ -33,30 +34,36 @@ export default function FavoritesPage() {
     loadFavorites();
   }, []);
 
-  // Delete a saved recipe.
+  // Delete a saved recipe after confirmation.
   async function handleDelete(favoriteId: number) {
+    if (deletingId !== null) return;
+
+    setDeletingId(favoriteId);
+    setError("");
+
     try {
-      await request<{ deleted: number }>(
-        `/favorites/${favoriteId}`,
-        { method: "DELETE" }
-      );
+      await request<{ deleted: number }>(`/favorites/${favoriteId}`, {
+        method: "DELETE",
+      });
 
       setFavorites((currentFavorites) =>
-        currentFavorites.filter(
-          (favorite) => favorite.id !== favoriteId
-        )
+        currentFavorites.filter((favorite) => favorite.id !== favoriteId)
       );
 
       setConfirmingId(null);
-      setError("");
     } catch {
       setError("Unable to delete this recipe. Please try again.");
+    } finally {
+      setDeletingId(null);
     }
   }
 
   if (loading) {
     return (
-      <div className="p-6 text-stone-500 dark:text-stone-400">
+      <div
+        role="status"
+        className="p-6 text-stone-500 dark:text-stone-400"
+      >
         Loading saved recipes...
       </div>
     );
@@ -129,12 +136,22 @@ export default function FavoritesPage() {
                   ) : (
                     <button
                       onClick={() => setConfirmingId(favorite.id)}
-                      className="rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                      disabled={deletingId !== null}
+                      className="rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-900/20"
                     >
                       Delete
                     </button>
                   )}
                 </div>
+
+                {deletingId === favorite.id && (
+                  <p
+                    role="status"
+                    className="mt-3 text-sm text-stone-500 dark:text-stone-400"
+                  >
+                    Deleting recipe...
+                  </p>
+                )}
               </article>
             ))}
           </div>
