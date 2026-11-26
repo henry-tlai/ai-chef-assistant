@@ -1,20 +1,28 @@
-"use client";
+  "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { HistoryPanel } from "@/components/history-panel";
-import { Markdown } from "@/components/markdown";
+  import { useEffect, useRef, useState } from "react";
+  import { HistoryPanel } from "@/components/history-panel";
+  import { Markdown } from "@/components/markdown";
 
-const API_URL = "http://127.0.0.1:8000";
+  const API_URL = "http://127.0.0.1:8000";
 
-type Message = { role: "user" | "assistant"; content: string };
-type Chat = { session_id: string; title: string };
+  type Message = { role: "user" | "assistant"; content: string };
+  type Chat = { session_id: string; title: string };
 
-// Keep the address bar in sync with the current chat, so a reload finds it again.
-function updateUrl(id: string | null) {
+  // Keep the address bar in sync with the current chat, so a reload finds it again.
+  function updateUrl(id: string | null) {
   window.history.replaceState(null, "", id ? `?session=${id}` : window.location.pathname);
-}
+  }
 
-export default function Home() {
+  function isRecipeResponse(content: string): boolean {
+    const hasIngredients = /^#{0,3}\s*ingredients\b/im.test(content);
+    const hasInstructions =
+      /^#{0,3}\s*(steps|instructions|directions|method)\b/im.test(content);
+
+    return hasIngredients && hasInstructions;
+  }
+
+  export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [input, setInput] = useState("");
@@ -23,6 +31,8 @@ export default function Home() {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState("");
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [savingFavorites, setSavingFavorites] = useState<number[]>([]);
+  const [savedFavorites, setSavedFavorites] = useState<number[]>([]);
 
   // References
   const panelRef = useRef<HTMLDialogElement>(null);
@@ -79,6 +89,35 @@ export default function Home() {
       setHistoryError("Couldn't delete that chat.");
     } finally {
       setPendingDelete(null);
+    }
+  }
+
+  async function saveFavorite(messageIndex: number) {
+    const message = messages[messageIndex];
+
+    if (!message || savingFavorites.includes(messageIndex)) return;
+    if (savedFavorites.includes(messageIndex)) return;
+
+    setSavingFavorites((prev) => [...prev, messageIndex]);
+
+    try {
+      const res = await fetch(`${API_URL}/favorites/from-recipe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipe_text: message.content }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Could not save recipe");
+      }
+
+      setSavedFavorites((prev) => [...prev, messageIndex]);
+    } catch {
+      alert("Couldn't save this recipe. Please try again.");
+    } finally {
+      setSavingFavorites((prev) =>
+        prev.filter((index) => index !== messageIndex)
+      );
     }
   }
 
@@ -178,7 +217,7 @@ export default function Home() {
       el.scrollTo({ top: el.scrollHeight });
     }
   }, [messages]);
-  
+
   return (
     <div className="flex h-dvh min-h-0 flex-col bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
       {/* Header: title, New chat, and the History button */}
@@ -210,8 +249,8 @@ export default function Home() {
       )}
 
       
-{/* Messages */}
-<div className="relative min-h-0 flex-1">
+  {/* Messages */}
+  <div className="relative min-h-0 flex-1">
 
   {/* Scrollable message area */}
   <div
@@ -233,7 +272,28 @@ export default function Home() {
             }
           >
             {m.role === "assistant" ? (
-              <Markdown>{m.content}</Markdown>
+              <>
+                <Markdown>{m.content}</Markdown>
+
+                {!(loading && i === messages.length - 1) && isRecipeResponse(m.content) && (
+                  <div className="mt-3 border-t border-stone-100 pt-2 dark:border-stone-700">
+                    <button
+                      onClick={() => saveFavorite(i)}
+                      disabled={
+                        savingFavorites.includes(i) ||
+                        savedFavorites.includes(i)
+                      }
+                      className="text-sm text-stone-500 transition hover:text-amber-600 disabled:cursor-default disabled:opacity-70 dark:text-stone-400"
+                    >
+                      {savedFavorites.includes(i)
+                        ? "♥ Saved"
+                        : savingFavorites.includes(i)
+                          ? "Saving..."
+                          : "♡ Favorite"}
+                    </button>
+                  </div>
+                )}
+              </>
             ) : (
               m.content
             )}
@@ -267,7 +327,7 @@ export default function Home() {
     </button>
   )}
 
-</div>
+  </div>
 
 
       {/* Input row, pinned at the bottom */}
@@ -307,4 +367,4 @@ export default function Home() {
       />
     </div>
   );
-}
+  }
