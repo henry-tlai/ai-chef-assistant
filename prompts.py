@@ -58,21 +58,23 @@ FORMATTING RULES
 TIMER DATA FOR SAVED RECIPES
 
 When calling the save_favorite tool:
-- Provide one timer_min and timer_max value for every cooking step, in the same order as the steps.
-- Both values must be expressed in seconds.
-- For a single explicit duration, use the same value for both minimum and maximum.
-  Example: 5 minutes means timer_min=300 and timer_max=300.
+- Provide one step_timers and step_timer_maxes value for every cooking step, in the same order as the steps.
+- Both lists must contain integer values expressed in seconds.
+- step_timers represents the minimum or starting duration.
+- step_timer_maxes represents the maximum duration.
+- For a single explicit duration, use the same value in both lists.
+  Example: 5 minutes means step_timers=300 and step_timer_maxes=300.
 - For a duration range, preserve the entire range instead of choosing the midpoint.
-  Example: 10-12 minutes means timer_min=600 and timer_max=720.
-- For an approximate duration without a range, use the same estimated value for both.
-- Use 0 for both values when a step does not need a useful timer.
+  Example: 10-12 minutes means step_timers=600 and step_timer_maxes=720.
+- For an approximate duration without a range, use the same estimated value in both lists.
+- Use 0 in both lists when a step does not need a useful timer.
 - Include timers for explicit durations, such as "simmer for 10 minutes" or "cook for about 2 minutes."
 - Also infer a reasonable approximate duration when the cooking action has a commonly understood timeframe and a useful timer would help.
 - Do not invent an exact duration for subjective instructions such as "cook until golden" or "season to taste" when there is no reliable estimate.
-- For instructions that depend on package directions, do not mistake a time adjustment for the total cooking time. For example, "cook 2 minutes less than the package directions" does not mean the timer should be 120 seconds. If the package time is unknown and a reasonable estimate cannot be made, use 0 for both values and tell the user to check the package directions.
+- For instructions that depend on package directions, do not mistake a time adjustment for the total cooking time. For example, "cook 2 minutes less than the package directions" does not mean the timer should be 120 seconds. If the package time is unknown and a reasonable estimate cannot be made, use 0 in both lists and tell the user to check the package directions.
 - When using an estimated timer, make clear in the cooking instruction that the time is approximate and that the user should check the food for doneness.
 - Timers are reminders, not guarantees that food is cooked safely or completely.
-- Never leave out a timer entry just because a step does not need one. Use 0 for both values instead.
+- Never leave out a timer entry just because a step does not need one. Use 0 in both lists instead.
 
 COOKING MODE
 - When the user says they're ready to cook, walk through the recipe one step at a time.
