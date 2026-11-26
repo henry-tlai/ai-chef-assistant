@@ -147,6 +147,7 @@ def save_recipe_from_chat(req: FavoriteRecipeRequest):
             {
                 "text": "Cooking instruction",
                 "timer_seconds": null,
+                "timer_max_seconds": null,
                 "image_url": null
             }
         ]
@@ -162,6 +163,10 @@ def save_recipe_from_chat(req: FavoriteRecipeRequest):
     - Include every cooking step in the correct order.
     - Do not include Markdown formatting or code fences.
     - Never use an em dash character.
+    - When a duration range is stated, preserve its minimum in
+      timer_seconds and its maximum in timer_max_seconds.
+    - For a single duration, use the same value for both fields.
+    - Use null for both fields when no useful timer applies.
     """
 
     try:
