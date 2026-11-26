@@ -96,9 +96,9 @@ def find_favorite(query):
             """
             SELECT title, recipe, recipe_json
             FROM favorites
-            WHERE LOWER(title) LIKE ?
+            WHERE LOWER(TRIM(title)) LIKE ?
             """,
-            (f"%{query}%".lower(),),
+            (f"%{query.strip()}%".lower(),),
         ).fetchall()
     return rows
 
