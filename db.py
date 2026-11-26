@@ -1,17 +1,30 @@
 import sqlite3
+from contextlib import contextmanager
 
 DB_PATH = "chef.db"
 
+@contextmanager
+def get_connection():
+    conn = sqlite3.connect(DB_PATH)
+
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
+
 
 def init_db():
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_connection() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS favorites (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
-                recipe TEXT NOT NULL
+                recipe TEXT NOT NULL,
+                recipe_json TEXT
             )
         """)
+
         conn.execute("""
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -19,12 +32,9 @@ def init_db():
                 content TEXT NOT NULL
             )
         """)
-        columns = [row[1] for row in conn.execute("PRAGMA table_info(favorites)")]
-        if "recipe_json" not in columns:                                
-            conn.execute("ALTER TABLE favorites ADD COLUMN recipe_json TEXT")  
 
 def save_favorite(title, recipe, recipe_json=None):
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_connection() as conn:
         # Prevent two save requests from inserting the same title at once.
         conn.execute("BEGIN IMMEDIATE")
 
@@ -52,12 +62,12 @@ def save_favorite(title, recipe, recipe_json=None):
     return True
 
 def list_favorites():
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_connection() as conn:
         rows = conn.execute("SELECT id, title FROM favorites").fetchall()
     return rows
 
 def get_favorite(favorite_id):
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_connection() as conn:
         row = conn.execute(
             "SELECT title, recipe FROM favorites WHERE id = ?",   
             (favorite_id,),                                              
@@ -65,7 +75,7 @@ def get_favorite(favorite_id):
     return row
 
 def get_favorite_record(favorite_id):
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_connection() as conn:
         row = conn.execute(
             "SELECT id, title, recipe, recipe_json FROM favorites WHERE id = ?",    
             (favorite_id,),
@@ -73,7 +83,7 @@ def get_favorite_record(favorite_id):
     return row
 
 def delete_favorite(favorite_id):
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_connection() as conn:
         cur = conn.execute(
             "DELETE FROM favorites WHERE id = ?",
             (favorite_id,),
@@ -81,7 +91,7 @@ def delete_favorite(favorite_id):
     return cur.rowcount > 0
 
 def find_favorite(query):
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_connection() as conn:
         rows = conn.execute(
             """
             SELECT title, recipe, recipe_json
@@ -93,14 +103,14 @@ def find_favorite(query):
     return rows
 
 def save_messages(session_id, json_messages):
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_connection() as conn:
         conn.executemany(
             "INSERT INTO messages (session_id, content) VALUES (?, ?)",
             [(session_id, m) for m in json_messages],
         )
 
 def load_messages(session_id):
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_connection() as conn:
         rows = conn.execute(
             "SELECT content FROM messages WHERE session_id = ? ORDER BY id",   
             (session_id,),
@@ -108,7 +118,7 @@ def load_messages(session_id):
     return [row[0] for row in rows]
 
 def list_conversations():
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_connection() as conn:
         rows = conn.execute("""
             SELECT m.session_id, m.content
             FROM messages m
@@ -122,7 +132,7 @@ def list_conversations():
     return rows
 
 def delete_conversation(session_id):
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_connection() as conn:
         cur = conn.execute(
             "DELETE FROM messages WHERE session_id = ?", 
             (session_id,),
