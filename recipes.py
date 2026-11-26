@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class Step(BaseModel):
@@ -6,6 +6,25 @@ class Step(BaseModel):
     timer_seconds: int | None = None
     timer_max_seconds: int | None = None
     image_url: str | None = None
+
+    @model_validator(mode="after")
+    def validate_timer_range(self):
+        minimum = self.timer_seconds
+        maximum = self.timer_max_seconds
+
+        if minimum is None and maximum is None:
+            return self
+
+        if minimum is None or maximum is None:
+            raise ValueError("Both timer values must be provided together.")
+
+        if minimum < 0 or maximum < 0:
+            raise ValueError("Timer values cannot be negative.")
+
+        if minimum > maximum:
+            raise ValueError("Maximum timer cannot be shorter than minimum.")
+
+        return self
 
 
 class Recipe(BaseModel):

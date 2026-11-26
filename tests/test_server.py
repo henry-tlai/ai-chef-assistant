@@ -106,11 +106,13 @@ def test_save_recipe_from_chat(client, monkeypatch):
             {
                 "text": "Prepare the chicken",
                 "timer_seconds": None,
+                "timer_max_seconds": None,
                 "image_url": None,
             },
             {
                 "text": "Cook the chicken for 10 minutes",
                 "timer_seconds": 600,
+                "timer_max_seconds": 600,
                 "image_url": None,
             },
         ],
@@ -223,11 +225,13 @@ def test_save_recipe_from_chat_does_not_duplicate_existing_favorite(
             {
                 "text": "Prepare the chicken",
                 "timer_seconds": None,
+                "timer_max_seconds": None,
                 "image_url": None,
             },
             {
                 "text": "Cook the chicken",
                 "timer_seconds": 600,
+                "timer_max_seconds": 600,
                 "image_url": None,
             },
         ],
