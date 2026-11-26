@@ -71,3 +71,116 @@ def test_save_favorite_rejects_a_recipe_with_no_steps(temp_db):
     # Assert
     assert "at least one step" in result
     assert favorites == []
+
+def test_save_favorite_stores_timer_ranges(temp_db):
+    # Arrange
+    title = "Roasted Chicken"
+    ingredients = ["1 whole chicken"]
+    steps = ["Roast the chicken"]
+    step_timers = [600]
+    step_timer_maxes = [720]
+
+    # Act
+    result = tools.save_favorite(
+        title,
+        ingredients,
+        steps,
+        step_timers,
+        step_timer_maxes,
+    )
+    favorite_id = db.list_favorites()[0][0]
+    record = db.get_favorite_record(favorite_id)
+    data = json.loads(record[3])
+
+    # Assert
+    assert "Saved" in result
+    assert data["steps"][0]["timer_seconds"] == 600
+    assert data["steps"][0]["timer_max_seconds"] == 720
+
+def test_save_favorite_stores_fixed_timer_range(temp_db):
+    # Arrange
+    title = "Boiled Eggs"
+    ingredients = ["2 eggs"]
+    steps = ["Boil the eggs"]
+    step_timers = [600]
+    step_timer_maxes = [600]
+
+    # Act
+    tools.save_favorite(
+        title,
+        ingredients,
+        steps,
+        step_timers,
+        step_timer_maxes,
+    )
+    favorite_id = db.list_favorites()[0][0]
+    record = db.get_favorite_record(favorite_id)
+    data = json.loads(record[3])
+
+    # Assert
+    assert data["steps"][0]["timer_seconds"] == 600
+    assert data["steps"][0]["timer_max_seconds"] == 600
+
+def test_save_favorite_rejects_mismatched_timer_lists(temp_db):
+    # Arrange
+    title = "Chicken"
+    ingredients = ["chicken"]
+    steps = ["Cook chicken", "Rest chicken"]
+    step_timers = [600]
+    step_timer_maxes = [720, 900]
+
+    # Act
+    result = tools.save_favorite(
+        title,
+        ingredients,
+        steps,
+        step_timers,
+        step_timer_maxes,
+    )
+
+    # Assert
+    assert "matching minimum and maximum" in result
+    assert db.list_favorites() == []
+
+
+def test_save_favorite_rejects_maximum_shorter_than_minimum(temp_db):
+    # Arrange
+    title = "Chicken"
+    ingredients = ["chicken"]
+    steps = ["Cook chicken"]
+    step_timers = [720]
+    step_timer_maxes = [600]
+
+    # Act
+    result = tools.save_favorite(
+        title,
+        ingredients,
+        steps,
+        step_timers,
+        step_timer_maxes,
+    )
+
+    # Assert
+    assert "maximum timer cannot be shorter" in result
+    assert db.list_favorites() == []
+
+def test_save_favorite_rejects_incomplete_timer_range(temp_db):
+    # Arrange
+    title = "Chicken"
+    ingredients = ["chicken"]
+    steps = ["Cook chicken"]
+    step_timers = [0]
+    step_timer_maxes = [600]
+
+    # Act
+    result = tools.save_favorite(
+        title,
+        ingredients,
+        steps,
+        step_timers,
+        step_timer_maxes,
+    )
+
+    # Assert
+    assert "use 0 for both timer values" in result
+    assert db.list_favorites() == []

@@ -10,6 +10,7 @@ def save_favorite(
     ingredients: list[str],
     steps: list[str],
     step_timers: list[int],
+    step_timer_maxes: list[int] | None = None,
 ) -> str:
     """Save a recipe to the user's favorites. Use this ONLY when the user's
     latest message explicitly asks to save, favorite, or keep a recipe.
@@ -17,28 +18,43 @@ def save_favorite(
     title is the dish name.
     ingredients is a list with one ingredient per item, including its amount.
     steps is a list with one cooking step per item, in order, without step numbers.
-    step_timers must contain one integer per cooking step, in the same order.
-    Use the estimated timer duration in seconds. Use 0 when no useful timer applies.
+    step_timers contains the minimum or starting timer for each step, in seconds.
+    step_timer_maxes contains the maximum timer for each step, in seconds.
+    Both timer lists must have one integer per cooking step, in the same order.
+    Use the same value in both lists for a single-duration timer.
+    Use 0 in both lists when no useful timer applies.
     """
-    if len(steps) != len(step_timers):
-        return "Could not save: every cooking step needs a matching timer value."
+    if step_timer_maxes is None:
+        step_timer_maxes = step_timers.copy()
+
+    if len(steps) != len(step_timers) or len(steps) != len(step_timer_maxes):
+        return "Could not save: every cooking step needs matching minimum and maximum timer values."
 
     try:
         recipe_steps = []
 
         for index, step_text in enumerate(steps):
-            timer = step_timers[index]
+            timer_min = step_timers[index]
+            timer_max = step_timer_maxes[index]
 
-            if timer < 0:
+            if timer_min < 0 or timer_max < 0:
                 return "Could not save: timer values cannot be negative."
 
-            if timer == 0:
-                timer = None
+            if (timer_min == 0) != (timer_max == 0):
+                return "Could not save: use 0 for both timer values when no timer applies."
+
+            if timer_min > timer_max:
+                return "Could not save: a maximum timer cannot be shorter than its minimum."
+
+            if timer_min == 0:
+                timer_min = None
+                timer_max = None
 
             recipe_steps.append(
                 Step(
                     text=step_text,
-                    timer_seconds=timer,
+                    timer_seconds=timer_min,
+                    timer_max_seconds=timer_max,
                 )
             )
 
@@ -54,11 +70,14 @@ def save_favorite(
             "Try again with the steps."
         )
 
-    db.save_favorite(
+    saved = db.save_favorite(
         title,
         to_text(recipe),
         recipe.model_dump_json(),
     )
+
+    if not saved:
+        return f"'{title}' is already in your favorites."
 
     return f"Saved '{title}' to favorites."
 
