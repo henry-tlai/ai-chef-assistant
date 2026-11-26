@@ -27,7 +27,10 @@ def chat_stream(history, user_message):
             break
 
         for call in calls:
-            result = TOOLS[call.name](**call.args)
+            if call.name not in TOOLS:
+                result = f"Error: Unknown tool '{call.name}'."
+            else:
+                result = TOOLS[call.name](**call.args)
             history.append(
                 types.Content(
                     role="user",
