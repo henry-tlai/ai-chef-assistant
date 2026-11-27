@@ -20,18 +20,31 @@ export default function FavoritesPage() {
 
   // Load saved recipes when the page opens.
   useEffect(() => {
+    let cancelled = false;
+
     async function loadFavorites() {
       try {
         const data = await request<Favorite[]>("/favorites");
-        setFavorites(data);
+
+        if (!cancelled) {
+          setFavorites(data);
+        }
       } catch {
-        setError("Unable to load your saved recipes.");
+        if (!cancelled) {
+          setError("Unable to load your saved recipes.");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     loadFavorites();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Delete a saved recipe after confirmation.
@@ -60,10 +73,7 @@ export default function FavoritesPage() {
 
   if (loading) {
     return (
-      <div
-        role="status"
-        className="p-6 text-stone-500 dark:text-stone-400"
-      >
+      <div role="status" className="p-6 text-stone-500 dark:text-stone-400">
         Loading saved recipes...
       </div>
     );
@@ -135,6 +145,7 @@ export default function FavoritesPage() {
                     />
                   ) : (
                     <button
+                      type="button"
                       onClick={() => setConfirmingId(favorite.id)}
                       disabled={deletingId !== null}
                       className="rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-900/20"
