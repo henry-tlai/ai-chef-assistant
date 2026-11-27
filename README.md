@@ -1,219 +1,330 @@
 # Chef Assistant
 
-A conversational AI chef you can chat with in the terminal or in a web app. Talk about what you feel like eating, get recipe ideas, cook along step by step, and keep a list of favorite recipes.
+A conversational AI chef that helps you decide what to cook, discover recipes, and follow cooking instructions step by step.
 
-Built in Python with a hand-written agent loop (no agent framework), a FastAPI backend, and a Streamlit chat UI, so every layer of how the app works is visible in the code.
-
-<!-- Add a screenshot of the web app here -->
-
----
+Built with Python, Google Gemini, FastAPI, Next.js, and SQLite. The project uses a hand-written agent loop rather than an agent framework, keeping the underlying AI behavior and tool execution visible in the code.
 
 ## Features
 
-- **Casual conversation.** The chef chats like a friend and suggests a dish when the moment is right.
-- **Consistent recipes.** Title, time and servings, ingredients, and numbered steps with short explanations of why.
-- **Cooking mode.** Walks you through a recipe one step at a time.
-- **Streaming replies.** The chef's answer appears as it is written instead of after a long pause.
-- **Favorites.** Save a recipe on request, list your saved recipes, reopen one, and delete one from the sidebar. Stored in SQLite.
-- **Saved conversations.** Chats persist across server restarts and page reloads, with a sidebar list to switch between or delete past chats.
-- **REST API.** A FastAPI backend any client can use.
-
----
+- **Conversational cooking assistant:** Chat naturally about food, ingredients, and what you feel like eating.
+- **Recipe generation:** Get structured recipes with ingredients, servings, cooking times, and numbered instructions.
+- **Cooking mode:** Follow a recipe one step at a time.
+- **Streaming responses:** Watch the assistant's response appear as it is generated.
+- **Favorites:** Save recipes, view saved recipes, reopen them, and delete them.
+- **Saved conversations:** Conversations persist across server restarts and can be reopened or deleted.
+- **Recipe history:** Review previous conversations.
+- **REST API:** A FastAPI backend that serves the frontend and supports other clients.
+- **Automated checks:** GitHub Actions and pre-commit hooks run code quality checks and tests.
 
 ## Tech Stack
 
-| Layer | Choice |
+| Layer | Technology |
 |---|---|
-| Language | Python 3.10+ |
-| Model | Google Gemini API (free tier) via `google-genai` |
-| Agent loop | Hand-written, no framework |
+| Language | Python |
+| AI model | Google Gemini API |
+| Model SDK | `google-genai` |
+| Agent | Custom Python agent loop |
 | Backend | FastAPI + Uvicorn |
-| UI | Streamlit |
-| Storage | SQLite |
-| Config | `python-dotenv` |
-
----
+| Frontend | Next.js + React + TypeScript |
+| Styling | Tailwind CSS |
+| Markdown rendering | React Markdown |
+| Database | SQLite |
+| Configuration | python-dotenv |
+| Testing | Pytest + NUnit-style Arrange-Act-Assert organization |
+| Code quality | Ruff + ESLint + TypeScript |
+| CI | GitHub Actions |
 
 ## Project Structure
 
-```
+```text
 chef-assistant/
-├── agent.py           # chat_stream() and chat(): the agent loop
-├── llm.py             # the only file that talks to the model
-├── prompts.py         # the chef's system prompt
-├── tools.py           # tools the model can call
-├── db.py              # SQLite helpers for favorites and messages
-├── server.py          # FastAPI backend (HTTP endpoints)
-├── ui.py              # Streamlit chat UI (calls the backend)
-├── main.py            # terminal version (still works)
+├── .github/
+│   └── workflows/          # GitHub Actions checks
+├── docs/                   # Project documentation and checkpoints
+├── frontend/
+│   ├── app/                # Next.js pages and layouts
+│   ├── components/         # Reusable React components
+│   ├── lib/                # Frontend API utilities
+│   ├── public/             # Static assets
+│   └── package.json
+├── scripts/                # Project scripts
+├── tests/                  # Python backend tests
+├── agent.py                # Agent loop and tool execution
+├── db.py                   # SQLite database operations
+├── llm.py                  # Gemini API communication
+├── main.py                 # Terminal interface
+├── prompts.py              # System prompts and chef behavior
+├── recipes.py              # Recipe models and formatting
+├── server.py               # FastAPI backend and HTTP endpoints
+├── tools.py                # Tools available to the AI agent
+├── ui.py                   # Streamlit interface retained in the project
 ├── requirements.txt
-├── scratch/           # throwaway test scripts
-└── .env               # your API key (not committed)
+├── requirements-dev.txt
+└── README.md
 ```
-
-Each file has one job. The agent code (`agent.py`, `llm.py`, `prompts.py`, `tools.py`, `db.py`) knows nothing about how it's being used, so the terminal, the API, and the UI all share it.
-
----
-
-## Example Session
-
-```
-You: I'm hungry
-Chef: Ha, same. Anything sounding good, or want me to surprise you?
-
-You: surprise me, I have chicken and rice
-Chef: Alright, how about one-pan garlic butter chicken and rice...
-      [full recipe in the standard format]
-
-You: save that one
-Chef: Done, it's in your favorites.
-
-You: let's cook the garlic butter chicken
-Chef: Step 1: Season the chicken with salt, pepper, and Italian seasoning...
-      Tell me when you're ready for the next step.
-```
-
----
-
-## Setup
-
-1. Get a free API key from [Google AI Studio](https://aistudio.google.com).
-
-2. Clone the repo and create a virtual environment:
-
-   ```bash
-   git clone https://github.com/henry-tlai/chef-assistant.git
-   cd chef-assistant
-   python -m venv venv
-   venv\Scripts\activate        # Mac/Linux: source venv/bin/activate
-   ```
-
-3. Install dependencies:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. Create a `.env` file in the project folder with one line:
-
-   ```
-   GEMINI_API_KEY=your-key-here
-   ```
-
----
-
-## Running It
-
-### Web app (two terminals, both with the virtual environment active)
-
-**Terminal 1: backend**
-
-```bash
-uvicorn server:app --reload
-```
-
-**Terminal 2: UI**
-
-```bash
-streamlit run ui.py
-```
-
-The chat page opens at `http://localhost:8501`. The backend's interactive API docs are at `http://127.0.0.1:8000/docs`. Run both commands from the project folder, since the database path is relative.
-
-### Terminal version
-
-```bash
-python main.py
-```
-
-Type `quit` or `exit` to leave.
-
----
 
 ## Architecture
 
-```
-Streamlit UI (ui.py)
-     │  POST /chat/stream  {"message": "...", "session_id": "..."}
-     ▼
-FastAPI (server.py) ── loads this session's history ──► chat_stream() (agent.py)
-     ▲                                                        │
-     │  reply text in pieces + X-Session-Id header            ▼
-     └───────────────────────────────────────────  agent loop ► Gemini (llm.py)
-                                                         │
-                                                         ▼
-                                                   tools.py ► db.py ► SQLite
+The primary application uses a Next.js frontend connected to a FastAPI backend.
+
+```text
+User
+  |
+  v
+Next.js Frontend
+  |
+  | HTTP requests / streaming responses
+  v
+FastAPI Backend
+  |
+  v
+Agent Loop
+  |
+  +------> Gemini API
+  |           |
+  |           v
+  |       Tool requests
+  |           |
+  v           v
+SQLite <--- tools.py
+  |
+  v
+Saved recipes and conversations
 ```
 
 ### The agent loop
 
-An agent is a loop: the model decides whether to answer or call a tool, sees the result, and repeats until it has a final answer.
+The agent loop is implemented in `agent.py`.
 
-```
-Add user message to history ──► Send history + system prompt + tools to the model
-                                          │
-                                          ▼
-                       Stream the reply, passing text along as it arrives
-                                          │
-                                          ▼
-                              Did the model ask to call a tool?
-                                 │                    │
-                                yes                   no
-                                 │                    │
-                      Run the tool in Python     Finish the reply
-                      Add the result to history
-                      and ask the model again
-```
+1. The application receives a user message.
+2. The agent combines the conversation history, system prompt, and available tools.
+3. Gemini decides whether to respond directly or request a tool.
+4. If a tool is requested, Python executes the corresponding function.
+5. The result is returned to the model.
+6. The process repeats until the model produces a final response.
 
-The model never runs code itself. It asks for a tool by name, the code looks it up in the `TOOLS` registry, runs it, and sends the result back. Every part of the model's reply, including tool requests, is kept in the history exactly as it was sent.
+The model does not execute application code itself. Python controls tool execution through the tool registry in `tools.py`.
 
-### Tools available to the chef
+### Available agent tools
 
-| Tool | What it does |
+| Tool | Purpose |
 |---|---|
-| `save_favorite` | Saves a recipe to the favorites database, only when the user asks |
+| `save_favorite` | Saves a recipe when requested |
 | `list_favorites` | Lists saved recipes |
-| `get_favorite` | Loads one saved recipe so you can cook it |
+| `get_favorite` | Retrieves a saved recipe |
 
-Deleting a favorite is intentionally not a chef tool. It's a deliberate action done with the delete button in the UI, because a chat model can misread "get rid of that" and the delete can't be undone.
+Deleting favorites is handled by the application rather than the AI agent, keeping destructive actions under direct user control.
 
-### API endpoints
+### Backend API
 
-| Method | Path | What it does |
+| Method | Endpoint | Purpose |
 |---|---|---|
-| POST | `/chat/stream` | Streams the reply as text; the session id comes back in the `X-Session-Id` header. Omit `session_id` to start a new conversation |
-| POST | `/chat` | Same conversation, but returns the full reply as JSON |
-| GET | `/history/{session_id}` | The readable messages of a saved conversation |
-| GET | `/conversations` | Saved conversations, newest first, titled by the opening message |
-| DELETE | `/conversations/{session_id}` | Deletes a saved conversation |
+| POST | `/chat` | Sends a message and returns a complete response |
+| POST | `/chat/stream` | Streams an assistant response |
+| GET | `/history/{session_id}` | Retrieves conversation messages |
+| GET | `/conversations` | Lists saved conversations |
+| DELETE | `/conversations/{session_id}` | Deletes a conversation |
 | GET | `/favorites` | Lists saved recipes |
-| DELETE | `/favorites/{id}` | Deletes a saved recipe |
+| GET | `/favorites/{favorite_id}` | Retrieves a saved recipe |
+| DELETE | `/favorites/{favorite_id}` | Deletes a saved recipe |
+
+The streaming endpoint returns the session identifier through the `X-Session-Id` response header.
 
 ### Persistence
 
-Every message, including tool calls and tool results, is stored in a SQLite `messages` table, one row per message, grouped by session id. The server keeps active conversations in memory and rebuilds a conversation from the database when it sees an id it doesn't have, so chats survive restarts. The UI keeps the session id in the page URL, so a reload returns to the same chat. Favorites live in their own table.
+SQLite stores conversations, messages, and favorite recipes.
 
----
+Conversation messages are grouped by session ID. When an existing conversation is requested, the backend can rebuild its history from the database.
+
+The frontend keeps the active conversation identifier in the URL so that users can return to a conversation after reloading the page.
+
+## Setup
+
+### Prerequisites
+
+- Python 3.13
+- Node.js 22 or later
+- npm
+- A Google Gemini API key
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/henry-tlai/chef-assistant.git
+cd chef-assistant
+```
+
+### 2. Create and activate a Python virtual environment
+
+Windows PowerShell:
+
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+```
+
+Mac/Linux:
+
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+### 3. Install backend dependencies
+
+```bash
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+```
+
+### 4. Configure environment variables
+
+Create a `.env` file in the project root:
+
+```env
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+Get an API key from [Google AI Studio](https://aistudio.google.com/).
+
+Never commit your `.env` file or expose your API key in frontend code.
+
+### 5. Install frontend dependencies
+
+Open a second terminal:
+
+```powershell
+cd frontend
+npm ci
+```
+
+Create `frontend/.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+```
+
+This tells the frontend where to find the backend.
+
+## Running the Application
+
+### 1. Start the backend
+
+From the project root, with the Python virtual environment activated:
+
+```powershell
+uvicorn server:app --reload
+```
+
+The backend runs at:
+
+```text
+http://127.0.0.1:8000
+```
+
+Interactive API documentation:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+### 2. Start the frontend
+
+From the `frontend` directory:
+
+```powershell
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+Both the backend and frontend must be running for the full application to work.
+
+### Additional interfaces
+
+The repository also retains `main.py` for the terminal interface and `ui.py` for the Streamlit interface.
+
+## Testing and Code Quality
+
+### Backend
+
+Run the Python tests:
+
+```powershell
+python -m pytest -q
+```
+
+Run Ruff:
+
+```powershell
+ruff check .
+```
+
+### Frontend
+
+From the `frontend` directory:
+
+```powershell
+npm run lint
+npm run typecheck
+npm run build
+```
+
+### Git hooks
+
+The repository uses pre-commit hooks to run checks before commits, including:
+
+- Secret and generated-file checks
+- Ruff
+- Python tests
+- Frontend ESLint
+- Frontend TypeScript checks
+- Commit message validation
+
+Commit messages must begin with `Added`, `Changed`, `Fixed`, or `Removed`.
+
+## Development Roadmap
+
+- [x] **V1:** Terminal cooking assistant with conversation, recipes, and favorites.
+- [x] **V2:** FastAPI backend with persistent conversations, favorites, and streaming.
+- [x] **V3:** Full-stack Next.js application with React and Tailwind CSS.
+- [ ] **V4:** MCP integration with Claude Desktop.
+- [ ] **Future ideas:** Pantry tracking, dietary preferences, grocery integrations, cooking timers, and voice interaction.
+
+## Future: Model Context Protocol (MCP)
+
+The next development phase explores the Model Context Protocol (MCP).
+
+The goal is to build a Python MCP server that exposes selected Chef Assistant capabilities to Claude Desktop.
+
+Planned capabilities include:
+
+- Retrieving saved recipes.
+- Listing favorite recipes.
+- Accessing recipe details.
+- Eventually saving recipes through controlled tool calls.
+
+The MCP server will initially operate separately from the existing FastAPI application. This allows MCP to be explored without changing the working agent architecture.
+
+MCP implementation has not started yet.
 
 ## Troubleshooting
 
-| Problem | Fix |
+| Problem | Possible solution |
 |---|---|
-| `404 NOT_FOUND ... model` | Gemini model names get retired. Change `MODEL` in `llm.py` to a current text model. |
-| Empty reply or `NON-TEXT: audio/...` | The model is an audio or image model. Pick a text model. |
-| `504 deadline exceeded` | Retry, or try a lighter "flash-lite" model. |
-| UI says the server is having issues | Check that `uvicorn server:app --reload` is running in the other terminal. |
-| `405 Method Not Allowed` | The UI is sending a request to a route that doesn't accept it. Check the URL constants at the top of `ui.py`. |
-| Chats or favorites missing | Start uvicorn from the project folder; the database file is created relative to where it runs. |
-| Reply appears all at once | Short replies arrive in only a few chunks. Ask for a long recipe to see the streaming. |
-| `ImportError: cannot import name ...` | Save all files and check the names match exactly. |
-| `KeyError` when a tool is called | The tool isn't listed in the `TOOLS` dictionary in `tools.py`. |
+| Gemini API errors | Verify the API key and model configuration in `llm.py`. |
+| Backend connection error | Make sure the FastAPI server is running. |
+| Frontend cannot reach backend | Check `NEXT_PUBLIC_API_URL` in `frontend/.env.local`. |
+| Missing Python package | Activate the virtual environment and install requirements. |
+| Missing frontend command | Run `npm ci` from `frontend`. |
+| Chats or favorites missing | Check that the backend is using the expected SQLite database. |
+| Streaming response appears incomplete | Check the backend logs and network connection. |
+| Git commit hook fails | Read the specific hook error and fix the underlying issue rather than bypassing the hook. |
 
----
+## License
 
-## Roadmap
-
-- [x] **V1:** Terminal chef with conversation, cooking mode, and favorites
-- [x] **V2:** FastAPI backend and Streamlit chat UI with favorites, saved conversations, and streaming replies
-- [ ] **V3:** Full-stack web app with React/Next.js and Tailwind on the same backend
-- [ ] **Ideas:** pantry tracking, dietary preferences, timers, voice, a confirm step before deletes
+Add a license before distributing or accepting contributions.
