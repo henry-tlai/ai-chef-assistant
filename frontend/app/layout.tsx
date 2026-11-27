@@ -1,8 +1,9 @@
+
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { NavRail, TabBar } from "@/components/nav";
-import type { ReactNode } from "react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,10 +18,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Chef Assistant",
   description:
-  "An AI cooking assistant that helps you discover recipes, save favorites, and follow step-by-step cooking instructions.",
+    "An AI cooking assistant that helps you discover recipes, save favorites, and follow step-by-step cooking instructions.",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
     <html
       lang="en"
