@@ -14,7 +14,7 @@ function updateUrl(id: string | null) {
   window.history.replaceState(
     null,
     "",
-    id ? `?session=${id}` : window.location.pathname
+    id ? `?session=${encodeURIComponent(id)}` : window.location.pathname
   );
 }
 
@@ -56,13 +56,22 @@ export default function Home() {
   async function openChat(id: string) {
     try {
       stickToBottom.current = true;
-      setMessages(await request<Message[]>(`/history/${id}`));
+
+      const data = await request<Message[]>(
+        `/history/${encodeURIComponent(id)}`
+      );
+
+      setMessages(data);
       setSessionId(id);
+      setHistoryError("");
       updateUrl(id);
     } catch {
       setMessages([
         { role: "assistant", content: "Couldn't load that chat." },
       ]);
+      setSessionId(null);
+      updateUrl(null);
+      setHistoryError("Couldn't load that conversation.");
     }
   }
 
@@ -80,7 +89,9 @@ export default function Home() {
   // Delete a saved chat after confirmation.
   async function deleteChat(id: string) {
     try {
-      await request(`/conversations/${id}`, { method: "DELETE" });
+      await request(`/conversations/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
 
       if (id === sessionId) {
         setMessages([]);
@@ -231,12 +242,7 @@ export default function Home() {
   // Load the chat list and reopen the chat specified in the URL.
   useEffect(() => {
     async function initialize() {
-      try {
-        const loadedChats = await request<Chat[]>("/conversations");
-        setChats(loadedChats);
-      } catch {
-        setChats([]);
-      }
+      await loadChats();
 
       const id = new URLSearchParams(window.location.search).get("session");
 
@@ -265,6 +271,7 @@ export default function Home() {
 
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={newChat}
             disabled={loading}
             className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-amber-700 disabled:opacity-50"
@@ -273,6 +280,7 @@ export default function Home() {
           </button>
 
           <button
+            type="button"
             onClick={() => panelRef.current?.showModal()}
             disabled={loading}
             aria-haspopup="dialog"
@@ -318,6 +326,7 @@ export default function Home() {
                         isRecipeResponse(m.content) && (
                           <div className="mt-3 border-t border-stone-100 pt-2 dark:border-stone-700">
                             <button
+                              type="button"
                               onClick={() => saveFavorite(m.content)}
                               disabled={
                                 savingFavorites.includes(m.content) ||
@@ -352,6 +361,7 @@ export default function Home() {
         {/* Floating scroll-to-bottom button */}
         {showScrollButton && (
           <button
+            type="button"
             onClick={() => {
               stickToBottom.current = true;
 
@@ -376,12 +386,18 @@ export default function Home() {
             className="min-w-0 flex-1 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-stone-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                send();
+              }
+            }}
             placeholder="What are we cooking?"
             aria-label="Message the chef"
           />
 
           <button
+            type="button"
             className="rounded-xl bg-amber-600 px-5 py-2.5 font-medium text-white transition hover:bg-amber-700 disabled:opacity-50"
             onClick={send}
             disabled={loading}
