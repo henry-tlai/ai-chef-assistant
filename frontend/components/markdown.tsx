@@ -56,7 +56,7 @@ export function Markdown({ children }: Props) {
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="underline text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
+            className="break-all text-amber-700 underline hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
           >
             {children}
           </a>
@@ -71,7 +71,7 @@ export function Markdown({ children }: Props) {
         ),
 
         pre: ({ children }) => (
-          <pre className="my-3 overflow-x-auto rounded-lg bg-stone-100 p-3 text-sm dark:bg-stone-800">
+          <pre className="my-3 overflow-x-auto rounded-lg bg-stone-100 p-3 text-sm dark:bg-stone-800 [&_code]:bg-transparent [&_code]:p-0 dark:[&_code]:bg-transparent">
             {children}
           </pre>
         ),
