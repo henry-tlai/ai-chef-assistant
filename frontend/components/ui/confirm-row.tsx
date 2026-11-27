@@ -10,6 +10,7 @@ export function ConfirmRow({ label, onConfirm, onCancel }: Props) {
     <div
       role="group"
       aria-label={label}
+      aria-live="polite"
       className="flex flex-1 items-center gap-2 text-sm"
     >
       <span className="flex-1">{label}</span>
