@@ -48,8 +48,9 @@ export const HistoryPanel = forwardRef<HTMLDialogElement, Props>(
           {/* Native dialog form closes the panel. */}
           <form method="dialog">
             <button
-              className="rounded-lg border border-stone-300 px-3 py-1 text-sm transition hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-800"
+              type="submit"
               aria-label="Close chat history"
+              className="rounded-lg border border-stone-300 px-3 py-1 text-sm transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 dark:border-stone-700 dark:hover:bg-stone-800"
             >
               Close
             </button>
@@ -61,7 +62,7 @@ export const HistoryPanel = forwardRef<HTMLDialogElement, Props>(
             No chats yet.
           </p>
         ) : (
-          <ul className="flex flex-col gap-1">
+          <ul aria-label="Saved conversations" className="flex flex-col gap-1">
             {chats.map((chat) => (
               <li key={chat.session_id}>
                 {pendingId === chat.session_id ? (
@@ -73,12 +74,13 @@ export const HistoryPanel = forwardRef<HTMLDialogElement, Props>(
                 ) : (
                   <div className="flex items-center gap-1">
                     <button
+                      type="button"
                       onClick={() => onOpen(chat.session_id)}
                       aria-current={
                         chat.session_id === currentId ? "page" : undefined
                       }
                       className={
-                        "flex-1 truncate rounded-md px-2 py-1.5 text-left text-sm transition " +
+                        "flex-1 truncate rounded-md px-2 py-1.5 text-left text-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 " +
                         (chat.session_id === currentId
                           ? "bg-amber-100 font-medium text-amber-900 dark:bg-amber-900/30 dark:text-amber-200"
                           : "hover:bg-stone-100 dark:hover:bg-stone-800")
@@ -88,9 +90,10 @@ export const HistoryPanel = forwardRef<HTMLDialogElement, Props>(
                     </button>
 
                     <button
+                      type="button"
                       onClick={() => onAskDelete(chat.session_id)}
                       aria-label={`Delete chat: ${chat.title}`}
-                      className="rounded px-2 py-1 text-stone-400 transition hover:text-red-500"
+                      className="rounded px-2 py-1 text-stone-400 transition hover:text-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
                     >
                       <span aria-hidden="true">x</span>
                     </button>
